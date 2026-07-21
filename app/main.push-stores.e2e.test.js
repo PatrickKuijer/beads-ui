@@ -77,9 +77,13 @@ describe('push stores integration (board view)', () => {
     await Promise.resolve();
 
     // Initial board: no cards
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(0);
     expect(
-      document.querySelectorAll('#in-progress-col .board-card').length
+      document.querySelectorAll('[data-board-column="ready"] .board-card')
+        .length
+    ).toBe(0);
+    expect(
+      document.querySelectorAll('[data-board-column="inprogress"] .board-card')
+        .length
     ).toBe(0);
 
     // Send per-subscription snapshots
@@ -101,9 +105,13 @@ describe('push stores integration (board view)', () => {
     await Promise.resolve();
 
     // Verify columns reflect only their subscription data
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(2);
     expect(
-      document.querySelectorAll('#in-progress-col .board-card').length
+      document.querySelectorAll('[data-board-column="ready"] .board-card')
+        .length
+    ).toBe(2);
+    expect(
+      document.querySelectorAll('[data-board-column="inprogress"] .board-card')
+        .length
     ).toBe(1);
 
     // Upsert into Ready only
@@ -115,10 +123,14 @@ describe('push stores integration (board view)', () => {
     });
     await Promise.resolve();
 
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(3);
+    expect(
+      document.querySelectorAll('[data-board-column="ready"] .board-card')
+        .length
+    ).toBe(3);
     // In-progress unaffected
     expect(
-      document.querySelectorAll('#in-progress-col .board-card').length
+      document.querySelectorAll('[data-board-column="inprogress"] .board-card')
+        .length
     ).toBe(1);
 
     // Delete from In-progress only
@@ -131,10 +143,14 @@ describe('push stores integration (board view)', () => {
     await Promise.resolve();
 
     expect(
-      document.querySelectorAll('#in-progress-col .board-card').length
+      document.querySelectorAll('[data-board-column="inprogress"] .board-card')
+        .length
     ).toBe(0);
     // Ready unaffected
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(3);
+    expect(
+      document.querySelectorAll('[data-board-column="ready"] .board-card')
+        .length
+    ).toBe(3);
   });
 
   test('reconnect replay does not duplicate entries', async () => {
@@ -157,7 +173,10 @@ describe('push stores integration (board view)', () => {
       ]
     });
     await Promise.resolve();
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(2);
+    expect(
+      document.querySelectorAll('[data-board-column="ready"] .board-card')
+        .length
+    ).toBe(2);
 
     // Simulate reconnect cycle and server replaying the same snapshot
     client._emitConn('reconnecting');
@@ -173,7 +192,10 @@ describe('push stores integration (board view)', () => {
     });
     await Promise.resolve();
     // Still exactly two cards; no duplicates
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(2);
+    expect(
+      document.querySelectorAll('[data-board-column="ready"] .board-card')
+        .length
+    ).toBe(2);
 
     // Newer upsert after replay updates item without duplication
     client._trigger('upsert', {
@@ -183,6 +205,9 @@ describe('push stores integration (board view)', () => {
       issue: { id: 'R-2', title: 'r2!', priority: 2, updated_at: 10_200 }
     });
     await Promise.resolve();
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(2);
+    expect(
+      document.querySelectorAll('[data-board-column="ready"] .board-card')
+        .length
+    ).toBe(2);
   });
 });

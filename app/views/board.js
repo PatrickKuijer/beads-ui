@@ -4,6 +4,7 @@ import { cmpClosedDesc, cmpPriorityThenCreated } from '../data/sort.js';
 import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 import { debug } from '../utils/logging.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
+import { statusLabel } from '../utils/status.js';
 import { showToast } from '../utils/toast.js';
 import { createTypeBadge } from '../utils/type-badge.js';
 
@@ -14,6 +15,9 @@ import { createTypeBadge } from '../utils/type-badge.js';
  *   status?: 'open'|'in_progress'|'closed',
  *   priority?: number,
  *   issue_type?: string,
+ *   epic_id?: string | null,
+ *   dependency_count?: number,
+ *   dependent_count?: number,
  *   created_at?: number,
  *   updated_at?: number,
  *   closed_at?: number
@@ -21,19 +25,59 @@ import { createTypeBadge } from '../utils/type-badge.js';
  */
 
 /**
- * Map column IDs to their corresponding status values.
- *
- * @type {Record<string, 'open'|'in_progress'|'closed'>}
+ * @typedef {{ id: string, title?: string, status?: string, total_children?: number, closed_children?: number }} EpicLite
  */
-const COLUMN_STATUS_MAP = {
-  'blocked-col': 'open',
-  'ready-col': 'open',
-  'in-progress-col': 'in_progress',
-  'closed-col': 'closed'
-};
 
 /**
- * Create the Board view with Blocked, Ready, In progress, Closed.
+ * @typedef {{ key: string, epic: EpicLite | null, blocked: IssueLite[], ready: IssueLite[], inprogress: IssueLite[], closed: IssueLite[] }} Lane
+ */
+
+/**
+ * Board columns, in display order. `status` is the value sent via
+ * `update-status` when a card is dropped on this column.
+ *
+ * @type {Array<{ key: 'blocked'|'ready'|'inprogress'|'closed', title: string, colorVar: string, status: 'open'|'in_progress'|'closed' }>}
+ */
+const COLUMNS = [
+  { key: 'blocked', title: 'Blocked', colorVar: '--c-blocked', status: 'open' },
+  { key: 'ready', title: 'Ready', colorVar: '--c-ready', status: 'open' },
+  {
+    key: 'inprogress',
+    title: 'In Progress',
+    colorVar: '--c-inprog',
+    status: 'in_progress'
+  },
+  { key: 'closed', title: 'Closed', colorVar: '--c-closed', status: 'closed' }
+];
+
+/** Deterministic accent palette for epic lane tiles/progress. */
+const EPIC_COLORS = [
+  '#3794ff',
+  '#c586c0',
+  '#4ec990',
+  '#e0983a',
+  '#4fc1ff',
+  '#b18aff',
+  '#e01e1e',
+  '#0f7dc4'
+];
+
+/**
+ * Deterministic color for an epic id.
+ *
+ * @param {string} epic_id
+ */
+function colorForEpic(epic_id) {
+  let hash = 0;
+  for (let i = 0; i < epic_id.length; i++) {
+    hash = (hash * 31 + epic_id.charCodeAt(i)) | 0;
+  }
+  const idx = Math.abs(hash) % EPIC_COLORS.length;
+  return EPIC_COLORS[idx];
+}
+
+/**
+ * Create the Board view: epic swimlanes over Blocked / Ready / In progress / Closed.
  * Push-only: derives items from per-subscription stores.
  *
  * Sorting rules:
@@ -72,6 +116,9 @@ export function createBoardView(
   // Centralized selection helpers
   const selectors = issueStores ? createListSelectors(issueStores) : null;
 
+  /** Collapsed lane keys (default: all lanes open). @type {Set<string>} */
+  const collapsed_lanes = new Set();
+
   /**
    * Closed column filter mode.
    * 'today' → items with closed_at since local day start
@@ -93,71 +140,250 @@ export function createBoardView(
     }
   }
 
+  /**
+   * Build swimlanes by grouping the four column lists by `epic_id`.
+   * Lanes are sorted by epic title (case-insensitive); the "No epic" lane
+   * always sorts last. Only lanes with at least one visible card are shown.
+   *
+   * @returns {Lane[]}
+   */
+  function computeLanes() {
+    /** @type {Map<string, EpicLite>} */
+    const epic_by_id = new Map();
+    if (issueStores && typeof issueStores.snapshotFor === 'function') {
+      const epics = /** @type {EpicLite[]} */ (
+        issueStores.snapshotFor('tab:board:epics') || []
+      );
+      for (const e of epics) {
+        if (e && typeof e.id === 'string' && e.id.length > 0) {
+          epic_by_id.set(e.id, e);
+        }
+      }
+    }
+
+    /** @type {Map<string, Lane>} */
+    const lanes_by_key = new Map();
+
+    /**
+     * @param {string} lane_key
+     * @returns {Lane}
+     */
+    function ensureLane(lane_key) {
+      let lane = lanes_by_key.get(lane_key);
+      if (!lane) {
+        lane = {
+          key: lane_key,
+          epic: lane_key ? epic_by_id.get(lane_key) || null : null,
+          blocked: [],
+          ready: [],
+          inprogress: [],
+          closed: []
+        };
+        lanes_by_key.set(lane_key, lane);
+      }
+      return lane;
+    }
+
+    /**
+     * @param {IssueLite[]} items
+     * @param {'blocked'|'ready'|'inprogress'|'closed'} col
+     */
+    function place(items, col) {
+      for (const it of items) {
+        const lane_key = typeof it.epic_id === 'string' ? it.epic_id : '';
+        ensureLane(lane_key)[col].push(it);
+      }
+    }
+    place(list_blocked, 'blocked');
+    place(list_ready, 'ready');
+    place(list_in_progress, 'inprogress');
+    place(list_closed, 'closed');
+
+    const lanes = Array.from(lanes_by_key.values());
+    lanes.sort((a, b) => {
+      if (!a.key) {
+        return 1;
+      }
+      if (!b.key) {
+        return -1;
+      }
+      const ta = (a.epic?.title || a.key).toLowerCase();
+      const tb = (b.epic?.title || b.key).toLowerCase();
+      return ta < tb ? -1 : ta > tb ? 1 : 0;
+    });
+    return lanes;
+  }
+
   function template() {
+    const lanes = computeLanes();
     return html`
       <div class="panel__body board-root">
-        ${columnTemplate('Blocked', 'blocked-col', list_blocked)}
-        ${columnTemplate('Ready', 'ready-col', list_ready)}
-        ${columnTemplate('In Progress', 'in-progress-col', list_in_progress)}
-        ${columnTemplate('Closed', 'closed-col', list_closed)}
+        <div class="board-columns-header" role="row">
+          ${COLUMNS.map((col) => columnHeaderTemplate(col))}
+        </div>
+        <div class="board-lanes">
+          ${lanes.length === 0
+            ? html`<div class="board-empty muted">No issues to show.</div>`
+            : lanes.map((lane) => laneTemplate(lane))}
+        </div>
       </div>
     `;
   }
 
   /**
-   * @param {string} title
-   * @param {string} id
-   * @param {IssueLite[]} items
+   * @param {{ key: string, title: string, colorVar: string }} col
    */
-  function columnTemplate(title, id, items) {
-    const item_count = Array.isArray(items) ? items.length : 0;
+  function columnHeaderTemplate(col) {
+    const items = columnItems(col.key);
+    const item_count = items.length;
     const count_label = item_count === 1 ? '1 issue' : `${item_count} issues`;
+    const dom_id = `${col.key === 'inprogress' ? 'in-progress' : col.key}-col`;
     return html`
-      <section class="board-column" id=${id}>
-        <header
-          class="board-column__header"
-          id=${id + '-header'}
-          role="heading"
-          aria-level="2"
-        >
-          <div class="board-column__title">
-            <span class="board-column__title-text">${title}</span>
-            <span class="badge board-column__count" aria-label=${count_label}>
-              ${item_count}
-            </span>
-          </div>
-          ${id === 'closed-col'
-            ? html`<label class="board-closed-filter">
-                <span class="visually-hidden">Filter closed issues</span>
-                <select
-                  id="closed-filter"
-                  aria-label="Filter closed issues"
-                  @change=${onClosedFilterChange}
-                >
-                  <option
-                    value="today"
-                    ?selected=${closed_filter_mode === 'today'}
-                  >
-                    Today
-                  </option>
-                  <option value="3" ?selected=${closed_filter_mode === '3'}>
-                    Last 3 days
-                  </option>
-                  <option value="7" ?selected=${closed_filter_mode === '7'}>
-                    Last 7 days
-                  </option>
-                </select>
-              </label>`
-            : ''}
-        </header>
-        <div
-          class="board-column__body"
-          role="list"
-          aria-labelledby=${id + '-header'}
-        >
-          ${items.map((it) => cardTemplate(it))}
+      <div class="board-column__header" id=${dom_id}>
+        <div class="board-column__title">
+          <span
+            class="board-column__swatch"
+            style="background: var(${col.colorVar})"
+          ></span>
+          <span class="board-column__title-text">${col.title}</span>
+          <span class="badge board-column__count" aria-label=${count_label}>
+            ${item_count}
+          </span>
         </div>
+        ${col.key === 'closed'
+          ? html`<label class="board-closed-filter">
+              <span class="visually-hidden">Filter closed issues</span>
+              <select
+                id="closed-filter"
+                aria-label="Filter closed issues"
+                @change=${onClosedFilterChange}
+              >
+                <option
+                  value="today"
+                  ?selected=${closed_filter_mode === 'today'}
+                >
+                  Today
+                </option>
+                <option value="3" ?selected=${closed_filter_mode === '3'}>
+                  Last 3 days
+                </option>
+                <option value="7" ?selected=${closed_filter_mode === '7'}>
+                  Last 7 days
+                </option>
+              </select>
+            </label>`
+          : ''}
+      </div>
+    `;
+  }
+
+  /**
+   * @param {string} col_key
+   * @returns {IssueLite[]}
+   */
+  function columnItems(col_key) {
+    if (col_key === 'blocked') {
+      return list_blocked;
+    }
+    if (col_key === 'ready') {
+      return list_ready;
+    }
+    if (col_key === 'inprogress') {
+      return list_in_progress;
+    }
+    return list_closed;
+  }
+
+  /**
+   * @param {Lane} lane
+   */
+  function laneTemplate(lane) {
+    const is_open = !collapsed_lanes.has(lane.key);
+    const total =
+      lane.blocked.length +
+      lane.ready.length +
+      lane.inprogress.length +
+      lane.closed.length;
+    const done = lane.epic
+      ? Number(lane.epic.closed_children ?? lane.closed.length) || 0
+      : lane.closed.length;
+    const lane_total = lane.epic
+      ? Number(lane.epic.total_children ?? total) || total
+      : total;
+    const pct = lane_total > 0 ? Math.round((done / lane_total) * 100) : 0;
+    const color = lane.key ? colorForEpic(lane.key) : 'var(--muted)';
+    const title = lane.key
+      ? lane.epic?.title || lane.key
+      : 'No epic · orphan issues';
+
+    return html`
+      <section class="board-lane" data-epic-id=${lane.key}>
+        <header
+          class="board-lane__header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${is_open}
+          @click=${() => toggleLane(lane.key)}
+          @keydown=${
+            /** @param {KeyboardEvent} ev */ (ev) => {
+              if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                toggleLane(lane.key);
+              }
+            }
+          }
+        >
+          <span class="board-lane__caret ${is_open ? 'is-open' : ''}"
+            >&#9656;</span
+          >
+          <span
+            class="board-lane__tile"
+            style="background: color-mix(in srgb, ${color} 20%, transparent); color: ${color}"
+            >${lane.key ? '' : '—'}</span
+          >
+          ${lane.key
+            ? html`<span class="board-lane__id mono" style="color: ${color}"
+                >${lane.key}</span
+              >`
+            : ''}
+          <span class="board-lane__title text-truncate">${title}</span>
+          <span class="board-lane__spacer"></span>
+          <span class="board-lane__progress-track">
+            <span
+              class="board-lane__progress-fill"
+              style="width: ${pct}%"
+            ></span>
+          </span>
+          <span class="muted mono board-lane__progress-label"
+            >${done}/${lane_total} done</span
+          >
+        </header>
+        ${is_open
+          ? html`<div class="board-lane__body">
+              ${COLUMNS.map((col) => laneCellTemplate(lane, col))}
+            </div>`
+          : ''}
       </section>
+    `;
+  }
+
+  /**
+   * @param {Lane} lane
+   * @param {{ key: 'blocked'|'ready'|'inprogress'|'closed', title: string }} col
+   */
+  function laneCellTemplate(lane, col) {
+    const items = lane[col.key];
+    const lane_label = lane.key ? lane.epic?.title || lane.key : 'No epic';
+    return html`
+      <div
+        class="board-lane__cell"
+        data-board-column=${col.key}
+        data-epic-id=${lane.key}
+        role="list"
+        aria-label="${col.title} — ${lane_label}"
+      >
+        ${items.map((it) => cardTemplate(it))}
+      </div>
     `;
   }
 
@@ -165,10 +391,15 @@ export function createBoardView(
    * @param {IssueLite} it
    */
   function cardTemplate(it) {
+    const p = typeof it.priority === 'number' ? it.priority : 2;
+    const status = String(it.status || 'open');
+    const dep_count =
+      Number(it.dependent_count || 0) + Number(it.dependency_count || 0);
     return html`
       <article
         class="board-card"
         data-issue-id=${it.id}
+        data-priority=${Math.max(0, Math.min(3, p))}
         role="listitem"
         tabindex="-1"
         draggable="true"
@@ -176,15 +407,43 @@ export function createBoardView(
         @dragstart=${(/** @type {DragEvent} */ ev) => onDragStart(ev, it.id)}
         @dragend=${onDragEnd}
       >
+        <div class="board-card__row1">
+          ${createTypeBadge(it.issue_type)}
+          ${createIssueIdRenderer(it.id, { class_name: 'mono board-card__id' })}
+          <span class="board-card__spacer"></span>
+          ${createPriorityBadge(it.priority)}
+        </div>
         <div class="board-card__title text-truncate">
           ${it.title || '(no title)'}
         </div>
-        <div class="board-card__meta">
-          ${createTypeBadge(it.issue_type)} ${createPriorityBadge(it.priority)}
-          ${createIssueIdRenderer(it.id, { class_name: 'mono' })}
+        <div class="board-card__row2">
+          <span class="board-card__status board-card__status--${status}">
+            <span class="board-card__status-dot"></span>
+            ${statusLabel(status)}
+          </span>
+          <span class="board-card__spacer"></span>
+          ${dep_count > 0
+            ? html`<span
+                class="board-card__deps mono"
+                title="${dep_count} linked"
+                >&#128279;${dep_count}</span
+              >`
+            : ''}
         </div>
       </article>
     `;
+  }
+
+  /**
+   * @param {string} lane_key
+   */
+  function toggleLane(lane_key) {
+    if (collapsed_lanes.has(lane_key)) {
+      collapsed_lanes.delete(lane_key);
+    } else {
+      collapsed_lanes.add(lane_key);
+    }
+    doRender();
   }
 
   /** @type {string|null} */
@@ -238,15 +497,15 @@ export function createBoardView(
   }
 
   /**
-   * Clear the currently highlighted drop target column.
+   * Clear the currently highlighted drop target cell.
    */
   function clearDropTarget() {
     /** @type {HTMLElement[]} */
-    const all_cols = Array.from(
-      mount_element.querySelectorAll('.board-column--drag-over')
+    const all_cells = Array.from(
+      mount_element.querySelectorAll('.board-lane__cell--drag-over')
     );
-    for (const c of all_cols) {
-      c.classList.remove('board-column--drag-over');
+    for (const c of all_cells) {
+      c.classList.remove('board-lane__cell--drag-over');
     }
   }
 
@@ -279,31 +538,18 @@ export function createBoardView(
 
   /**
    * Enhance rendered board with a11y and keyboard navigation.
-   * - Roving tabindex per column (first card tabbable).
-   * - ArrowUp/ArrowDown within column.
-   * - ArrowLeft/ArrowRight to adjacent non-empty column (focus top card).
-   * - Enter/Space to open details for focused card.
+   * - Roving tabindex per lane cell (first card tabbable).
    */
   function postRenderEnhance() {
     try {
       /** @type {HTMLElement[]} */
-      const columns = Array.from(
-        mount_element.querySelectorAll('.board-column')
+      const cells = Array.from(
+        mount_element.querySelectorAll('.board-lane__cell')
       );
-      for (const col of columns) {
-        const body = /** @type {HTMLElement|null} */ (
-          col.querySelector('.board-column__body')
-        );
-        if (!body) {
-          continue;
-        }
+      for (const cell of cells) {
         /** @type {HTMLElement[]} */
-        const cards = Array.from(body.querySelectorAll('.board-card'));
-        // Assign aria-label using column header for screen readers
-        const header = /** @type {HTMLElement|null} */ (
-          col.querySelector('.board-column__header')
-        );
-        const col_name = header ? header.textContent?.trim() || '' : '';
+        const cards = Array.from(cell.querySelectorAll('.board-card'));
+        const col_name = cell.getAttribute('aria-label') || '';
         for (const card of cards) {
           const title_el = /** @type {HTMLElement|null} */ (
             card.querySelector('.board-card__title')
@@ -311,9 +557,8 @@ export function createBoardView(
           const t = title_el ? title_el.textContent?.trim() || '' : '';
           card.setAttribute(
             'aria-label',
-            `Issue ${t || '(no title)'} — Column ${col_name}`
+            `Issue ${t || '(no title)'} — ${col_name}`
           );
-          // Default roving setup
           card.tabIndex = -1;
         }
         if (cards.length > 0) {
@@ -363,17 +608,15 @@ export function createBoardView(
       return;
     }
     ev.preventDefault();
-    // Column context
-    const col = /** @type {HTMLElement|null} */ (card.closest('.board-column'));
-    if (!col) {
-      return;
-    }
-    const body = col.querySelector('.board-column__body');
-    if (!body) {
+    // Cell context (one column within one lane)
+    const cell = /** @type {HTMLElement|null} */ (
+      card.closest('.board-lane__cell')
+    );
+    if (!cell) {
       return;
     }
     /** @type {HTMLElement[]} */
-    const cards = Array.from(body.querySelectorAll('.board-card'));
+    const cards = Array.from(cell.querySelectorAll('.board-card'));
     const idx = cards.indexOf(/** @type {HTMLElement} */ (card));
     if (idx === -1) {
       return;
@@ -387,34 +630,34 @@ export function createBoardView(
       return;
     }
     if (key === 'ArrowRight' || key === 'ArrowLeft') {
-      // Find adjacent column with at least one card
+      // Find adjacent non-empty cell within the same lane
+      const lane = /** @type {HTMLElement|null} */ (
+        cell.closest('.board-lane')
+      );
+      if (!lane) {
+        return;
+      }
       /** @type {HTMLElement[]} */
-      const cols = Array.from(mount_element.querySelectorAll('.board-column'));
-      const col_idx = cols.indexOf(col);
-      if (col_idx === -1) {
+      const lane_cells = Array.from(lane.querySelectorAll('.board-lane__cell'));
+      const cell_idx = lane_cells.indexOf(cell);
+      if (cell_idx === -1) {
         return;
       }
       const dir = key === 'ArrowRight' ? 1 : -1;
-      let next_idx = col_idx + dir;
+      let next_idx = cell_idx + dir;
       /** @type {HTMLElement|null} */
-      let target_col = null;
-      while (next_idx >= 0 && next_idx < cols.length) {
-        const candidate = cols[next_idx];
-        const c_body = /** @type {HTMLElement|null} */ (
-          candidate.querySelector('.board-column__body')
-        );
-        const c_cards = c_body
-          ? Array.from(c_body.querySelectorAll('.board-card'))
-          : [];
-        if (c_cards.length > 0) {
-          target_col = candidate;
+      let target_cell = null;
+      while (next_idx >= 0 && next_idx < lane_cells.length) {
+        const candidate = lane_cells[next_idx];
+        if (candidate.querySelector('.board-card')) {
+          target_cell = candidate;
           break;
         }
         next_idx += dir;
       }
-      if (target_col) {
+      if (target_cell) {
         const first = /** @type {HTMLElement|null} */ (
-          target_col.querySelector('.board-column__body .board-card')
+          target_cell.querySelector('.board-card')
         );
         if (first) {
           moveFocus(/** @type {HTMLElement} */ (card), first);
@@ -424,40 +667,35 @@ export function createBoardView(
     }
   });
 
-  // Track the currently highlighted column to avoid flicker
+  // Track the currently highlighted cell to avoid flicker
   /** @type {HTMLElement|null} */
   let current_drop_target = null;
 
-  // Delegate drag and drop handling for columns
+  // Delegate drag and drop handling for lane cells
   mount_element.addEventListener('dragover', (ev) => {
     ev.preventDefault();
     if (ev.dataTransfer) {
       ev.dataTransfer.dropEffect = 'move';
     }
-    // Find the column being dragged over
     const target = /** @type {HTMLElement} */ (ev.target);
-    const col = /** @type {HTMLElement|null} */ (
-      target.closest('.board-column')
+    const cell = /** @type {HTMLElement|null} */ (
+      target.closest('.board-lane__cell')
     );
 
-    // Only update if we've entered a different column
-    if (col && col !== current_drop_target) {
-      // Remove highlight from previous column
+    if (cell && cell !== current_drop_target) {
       if (current_drop_target) {
-        current_drop_target.classList.remove('board-column--drag-over');
+        current_drop_target.classList.remove('board-lane__cell--drag-over');
       }
-      // Highlight the new column
-      col.classList.add('board-column--drag-over');
-      current_drop_target = col;
+      cell.classList.add('board-lane__cell--drag-over');
+      current_drop_target = cell;
     }
   });
 
   mount_element.addEventListener('dragleave', (ev) => {
     const related = /** @type {HTMLElement|null} */ (ev.relatedTarget);
-    // Only clear if we're leaving the mount element entirely
     if (!related || !mount_element.contains(related)) {
       if (current_drop_target) {
-        current_drop_target.classList.remove('board-column--drag-over');
+        current_drop_target.classList.remove('board-lane__cell--drag-over');
         current_drop_target = null;
       }
     }
@@ -465,22 +703,21 @@ export function createBoardView(
 
   mount_element.addEventListener('drop', (ev) => {
     ev.preventDefault();
-    // Clear the drop target highlight
     if (current_drop_target) {
-      current_drop_target.classList.remove('board-column--drag-over');
+      current_drop_target.classList.remove('board-lane__cell--drag-over');
       current_drop_target = null;
     }
 
     const target = /** @type {HTMLElement} */ (ev.target);
-    const col = target.closest('.board-column');
-    if (!col) {
+    const cell = target.closest('.board-lane__cell');
+    if (!cell) {
       return;
     }
 
-    const col_id = col.id;
-    const new_status = COLUMN_STATUS_MAP[col_id];
-    if (!new_status) {
-      log('drop on unknown column: %s', col_id);
+    const col_key = cell.getAttribute('data-board-column') || '';
+    const col = COLUMNS.find((c) => c.key === col_key);
+    if (!col) {
+      log('drop on unknown column: %s', col_key);
       return;
     }
 
@@ -490,8 +727,8 @@ export function createBoardView(
       return;
     }
 
-    log('drop %s on %s → %s', issue_id, col_id, new_status);
-    void updateIssueStatus(issue_id, new_status);
+    log('drop %s on %s → %s', issue_id, col_key, col.status);
+    void updateIssueStatus(issue_id, col.status);
   });
 
   /**

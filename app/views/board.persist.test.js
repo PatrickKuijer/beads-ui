@@ -106,7 +106,7 @@ describe('views/board persisted closed filter via store', () => {
 
     // With persisted '7' days, B and C visible (A is 8 days old)
     let closed_ids = Array.from(
-      mount.querySelectorAll('#closed-col .board-card')
+      mount.querySelectorAll('[data-board-column="closed"] .board-card')
     ).map((el) => el.getAttribute('data-issue-id'));
     expect(closed_ids).toEqual(['C', 'B']);
 
@@ -123,7 +123,7 @@ describe('views/board persisted closed filter via store', () => {
 
     // Now still B and C visible (both within 3 days)
     closed_ids = Array.from(
-      mount.querySelectorAll('#closed-col .board-card')
+      mount.querySelectorAll('[data-board-column="closed"] .board-card')
     ).map((el) => el.getAttribute('data-issue-id'));
     expect(closed_ids).toEqual(['C', 'B']);
   });

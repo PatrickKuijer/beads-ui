@@ -165,31 +165,33 @@ describe('views/board', () => {
 
     // Blocked: priority asc, then created_at desc for equal priority
     const blocked_ids = Array.from(
-      mount.querySelectorAll('#blocked-col .board-card .mono')
+      mount.querySelectorAll('[data-board-column="blocked"] .board-card .mono')
     ).map((el) => el.textContent?.trim());
     expect(blocked_ids).toEqual(['B-1', 'B-2']);
 
     // Ready: priority asc, then created_at asc for equal priority
     const ready_ids = Array.from(
-      mount.querySelectorAll('#ready-col .board-card .mono')
+      mount.querySelectorAll('[data-board-column="ready"] .board-card .mono')
     ).map((el) => el.textContent?.trim());
     expect(ready_ids).toEqual(['R-1', 'R-2', 'R-3']);
 
     // In progress: priority asc (default), then created_at asc
     const prog_ids = Array.from(
-      mount.querySelectorAll('#in-progress-col .board-card .mono')
+      mount.querySelectorAll(
+        '[data-board-column="inprogress"] .board-card .mono'
+      )
     ).map((el) => el.textContent?.trim());
     expect(prog_ids).toEqual(['P-2', 'P-1']);
 
     // Closed: closed_at desc
     const closed_ids = Array.from(
-      mount.querySelectorAll('#closed-col .board-card .mono')
+      mount.querySelectorAll('[data-board-column="closed"] .board-card .mono')
     ).map((el) => el.textContent?.trim());
     expect(closed_ids).toEqual(['C-2', 'C-1']);
 
     // Click navigates
     const first_ready = /** @type {HTMLElement|null} */ (
-      mount.querySelector('#ready-col .board-card')
+      mount.querySelector('[data-board-column="ready"] .board-card')
     );
     first_ready?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(navigations[0]).toBe('R-1');
@@ -362,14 +364,16 @@ describe('views/board', () => {
     await view.load();
 
     const ready_ids = Array.from(
-      mount.querySelectorAll('#ready-col .board-card .mono')
+      mount.querySelectorAll('[data-board-column="ready"] .board-card .mono')
     ).map((el) => el.textContent?.trim());
 
     // X-2 is in progress, so Ready should only show X-1
     expect(ready_ids).toEqual(['X-1']);
 
     const prog_ids = Array.from(
-      mount.querySelectorAll('#in-progress-col .board-card .mono')
+      mount.querySelectorAll(
+        '[data-board-column="inprogress"] .board-card .mono'
+      )
     ).map((el) => el.textContent?.trim());
     expect(prog_ids).toEqual(['X-2']);
   });

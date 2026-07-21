@@ -70,10 +70,10 @@ describe('views/board keyboard navigation', () => {
     await view.load();
 
     const first = /** @type {HTMLElement} */ (
-      mount.querySelector('#in-progress-col .board-card')
+      mount.querySelector('[data-board-column="inprogress"] .board-card')
     );
     const second = /** @type {HTMLElement} */ (
-      mount.querySelectorAll('#in-progress-col .board-card')[1]
+      mount.querySelectorAll('[data-board-column="inprogress"] .board-card')[1]
     );
     first.focus();
     expect(document.activeElement).toBe(first);
@@ -127,10 +127,10 @@ describe('views/board keyboard navigation', () => {
     await view.load();
 
     const open_first = /** @type {HTMLElement} */ (
-      mount.querySelector('#blocked-col .board-card')
+      mount.querySelector('[data-board-column="blocked"] .board-card')
     );
     const prog_first = /** @type {HTMLElement} */ (
-      mount.querySelector('#in-progress-col .board-card')
+      mount.querySelector('[data-board-column="inprogress"] .board-card')
     );
     open_first.focus();
     open_first.dispatchEvent(

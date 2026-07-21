@@ -83,7 +83,7 @@ describe('views/board closed filter', () => {
 
     // Default filter: Today → only C-3 visible
     let closed_ids = Array.from(
-      mount.querySelectorAll('#closed-col .board-card .mono')
+      mount.querySelectorAll('[data-board-column="closed"] .board-card .mono')
     ).map((el) => el.textContent?.trim());
     expect(closed_ids).toEqual(['C-3']);
 
@@ -95,7 +95,7 @@ describe('views/board closed filter', () => {
     select.dispatchEvent(new Event('change', { bubbles: true }));
 
     closed_ids = Array.from(
-      mount.querySelectorAll('#closed-col .board-card .mono')
+      mount.querySelectorAll('[data-board-column="closed"] .board-card .mono')
     ).map((el) => el.textContent?.trim());
     expect(closed_ids).toEqual(['C-3', 'C-2']);
 
@@ -103,7 +103,7 @@ describe('views/board closed filter', () => {
     select.value = '7';
     select.dispatchEvent(new Event('change', { bubbles: true }));
     closed_ids = Array.from(
-      mount.querySelectorAll('#closed-col .board-card .mono')
+      mount.querySelectorAll('[data-board-column="closed"] .board-card .mono')
     ).map((el) => el.textContent?.trim());
     expect(closed_ids).toEqual(['C-3', 'C-2', 'C-1']);
   });
