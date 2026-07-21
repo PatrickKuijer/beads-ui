@@ -1,0 +1,1778 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
+        <style>
+          * {
+            box-sizing: border-box;
+          }
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+          }
+          body {
+            font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+          }
+          a {
+            color: var(--accent);
+            text-decoration: none;
+          }
+          a:hover {
+            color: var(--accent-hover);
+          }
+          ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+          }
+          ::-webkit-scrollbar-thumb {
+            background: var(--scroll);
+            border: 3px solid transparent;
+            background-clip: padding-box;
+            border-radius: 8px;
+          }
+          ::-webkit-scrollbar-thumb:hover {
+            background: var(--scroll-h);
+            background-clip: padding-box;
+            border: 3px solid transparent;
+          }
+          ::-webkit-scrollbar-corner {
+            background: transparent;
+          }
+          :root {
+            --bg: #1e1e1e;
+            --bg-2: #252526;
+            --bg-3: #2d2d30;
+            --bg-hover: #2a2d2e;
+            --activity: #333333;
+            --border: #3c3c3c;
+            --border-2: #454545;
+            --text: #d4d4d4;
+            --text-dim: #8a8a8a;
+            --text-bright: #ffffff;
+            --accent: #3794ff;
+            --accent-hover: #4ea1ff;
+            --accent-fg: #ffffff;
+            --sel: #04395e;
+            --sel-2: #094771;
+            --card-soft: #252526;
+            --scroll: #4a4a4a;
+            --scroll-h: #5a5a5a;
+            --shadow: rgba(0, 0, 0, 0.4);
+            --p0: #f14c4c;
+            --p1: #e0983a;
+            --p2: #3794ff;
+            --p3: #8a8a8a;
+            --t-bug: #f14c4c;
+            --t-task: #4fc1ff;
+            --t-feature: #c586c0;
+            --c-blocked: #f14c4c;
+            --c-ready: #4ec990;
+            --c-inprog: #3794ff;
+            --c-closed: #8a8a8a;
+            --card-radius: 4px;
+            --card-pad: 9px 11px;
+            --card-shadow: none;
+            --card-bg: var(--bg-3);
+            --board-gap: 10px;
+            --lane-gap: 8px;
+            --card-gap: 7px;
+          }
+          [data-theme='light'] {
+            --bg: #ffffff;
+            --bg-2: #f3f3f3;
+            --bg-3: #f8f8f8;
+            --bg-hover: #eaeaea;
+            --activity: #2c2c2c;
+            --border: #e5e5e5;
+            --border-2: #d4d4d4;
+            --text: #3b3b3b;
+            --text-dim: #6e6e6e;
+            --text-bright: #000000;
+            --accent: #0066bf;
+            --accent-hover: #0a5ca8;
+            --accent-fg: #ffffff;
+            --sel: #cbe2f7;
+            --sel-2: #bcdcf5;
+            --card-soft: #ffffff;
+            --scroll: #c4c4c4;
+            --scroll-h: #a8a8a8;
+            --shadow: rgba(0, 0, 0, 0.12);
+            --p0: #e01e1e;
+            --p1: #bf7415;
+            --p2: #0066bf;
+            --p3: #8a8a8a;
+            --t-bug: #e01e1e;
+            --t-task: #0f7dc4;
+            --t-feature: #a626a4;
+            --c-blocked: #e01e1e;
+            --c-ready: #288e5a;
+            --c-inprog: #0066bf;
+            --c-closed: #8a8a8a;
+          }
+          [data-dir='soft'] {
+            --card-radius: 11px;
+            --card-pad: 13px 14px;
+            --card-shadow: 0 1px 2px var(--shadow), 0 2px 6px var(--shadow);
+            --card-bg: var(--card-soft);
+            --board-gap: 14px;
+            --lane-gap: 12px;
+            --card-gap: 11px;
+          }
+          [data-prio='0'] {
+            --pc: var(--p0);
+          }
+          [data-prio='1'] {
+            --pc: var(--p1);
+          }
+          [data-prio='2'] {
+            --pc: var(--p2);
+          }
+          [data-prio='3'] {
+            --pc: var(--p3);
+          }
+          [data-type='bug'] {
+            --tc: var(--t-bug);
+          }
+          [data-type='task'] {
+            --tc: var(--t-task);
+          }
+          [data-type='feature'] {
+            --tc: var(--t-feature);
+          }
+          [data-st='blocked'] {
+            --sc: var(--c-blocked);
+          }
+          [data-st='ready'] {
+            --sc: var(--c-ready);
+          }
+          [data-st='inprog'] {
+            --sc: var(--c-inprog);
+          }
+          [data-st='closed'] {
+            --sc: var(--c-closed);
+          }
+          @keyframes pulse {
+            0%,
+            100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.35;
+            }
+          }
+          @keyframes slidein {
+            from {
+              transform: translateX(24px);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+        </style>
+      </helmet>
+      <div
+        style="
+          display: flex;
+          height: 100vh;
+          width: 100%;
+          overflow: hidden;
+          background: var(--bg);
+          color: var(--text);
+          font-size: 13px;
+        "
+        data-theme="{{ theme }}"
+        data-dir="{{ dir }}"
+      >
+        <div
+          style="
+            width: 52px;
+            flex: none;
+            background: var(--activity);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0;
+            gap: 2px;
+            border-right: 1px solid rgba(0, 0, 0, 0.25);
+          "
+        >
+          <div
+            style="
+              width: 30px;
+              height: 30px;
+              border-radius: 7px;
+              background: linear-gradient(135deg, var(--accent), #7b5cff);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin-bottom: 12px;
+              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            "
+          >
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              stroke-width="2.4"
+              stroke-linecap="round"
+            >
+              <circle cx="6" cy="6" r="2.4" />
+              <circle cx="18" cy="6" r="2.4" />
+              <circle cx="12" cy="18" r="2.4" />
+              <path
+                d="M6 8.4v3.6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8.4M12 14v1.6"
+              />
+            </svg>
+          </div>
+          <sc-for list="{{ navItems }}" as="nav" hint-placeholder-count="3">
+            <button
+              onClick="{{ nav.go }}"
+              title="{{ nav.label }}"
+              style="width:40px;height:40px;border:none;background:{{ nav.bg }};color:{{ nav.fg }};border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;transition:.12s"
+              data-active="{{ nav.active }}"
+            >
+              <span
+                style="position:absolute;left:-8px;top:9px;bottom:9px;width:3px;border-radius:3px;background:{{ nav.bar }}"
+              ></span>
+              {{ nav.icon }}
+            </button>
+          </sc-for>
+          <div style="flex: 1"></div>
+          <button
+            onClick="{{ toggleTheme }}"
+            title="Toggle theme"
+            style="
+              width: 40px;
+              height: 40px;
+              border: none;
+              background: transparent;
+              color: #c9c9c9;
+              border-radius: 8px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            {{ themeIcon }}
+          </button>
+        </div>
+
+        <div
+          style="flex: 1; display: flex; flex-direction: column; min-width: 0"
+        >
+          <header
+            style="
+              height: 44px;
+              flex: none;
+              display: flex;
+              align-items: center;
+              gap: 14px;
+              padding: 0 16px;
+              border-bottom: 1px solid var(--border);
+              background: var(--bg-2);
+            "
+          >
+            <div
+              style="
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+                min-width: 0;
+              "
+            >
+              <span
+                style="
+                  font-weight: 600;
+                  font-size: 13px;
+                  color: var(--text-bright);
+                  white-space: nowrap;
+                "
+                >{{ project }}</span
+              >
+              <span
+                style="
+                  font-family: 'JetBrains Mono', monospace;
+                  font-size: 11px;
+                  color: var(--text-dim);
+                "
+                >{{ issueCount }} issues</span
+              >
+            </div>
+            <div
+              style="
+                display: flex;
+                gap: 2px;
+                background: var(--bg);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 2px;
+              "
+            >
+              <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="3">
+                <button
+                  onClick="{{ tab.go }}"
+                  style="border:none;background:{{ tab.bg }};color:{{ tab.fg }};font-size:12px;font-weight:{{ tab.fw }};padding:5px 13px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.12s"
+                >
+                  {{ tab.label }}
+                </button>
+              </sc-for>
+            </div>
+            <div style="flex: 1"></div>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                background: var(--bg);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 5px 10px;
+                width: 210px;
+              "
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="var(--text-dim)"
+                stroke-width="1.6"
+              >
+                <circle cx="7" cy="7" r="4.5" />
+                <path d="M11 11l3 3" stroke-linecap="round" />
+              </svg>
+              <input
+                value="{{ search }}"
+                onInput="{{ onSearch }}"
+                placeholder="Search id or title…"
+                style="
+                  border: none;
+                  background: transparent;
+                  outline: none;
+                  color: var(--text);
+                  font-size: 12px;
+                  width: 100%;
+                  font-family: inherit;
+                "
+              />
+            </div>
+            <div style="display: flex; gap: 3px; align-items: center">
+              <sc-for list="{{ prioChips }}" as="pc" hint-placeholder-count="4">
+                <button
+                  onClick="{{ pc.toggle }}"
+                  title="{{ pc.title }}"
+                  style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;border:1px solid {{ pc.border }};background:{{ pc.bg }};color:{{ pc.color }};border-radius:6px;padding:4px 7px;cursor:pointer;transition:.12s"
+                >
+                  {{ pc.label }}
+                </button>
+              </sc-for>
+            </div>
+            <button
+              onClick="{{ toggleHideClosed }}"
+              style="font-size:11.5px;border:1px solid var(--border);background:{{ hideClosedBg }};color:{{ hideClosedFg }};border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap;transition:.12s"
+            >
+              {{ hideClosedLabel }}
+            </button>
+          </header>
+
+          <div style="flex: 1; overflow: auto; min-height: 0">
+            <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ true }}">
+              <div style="min-width: 940px; padding: 0 0 40px">
+                <div
+                  style="
+                    position: sticky;
+                    top: 0;
+                    z-index: 6;
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: var(--board-gap);
+                    padding: 12px 18px;
+                    background: var(--bg);
+                    border-bottom: 1px solid var(--border);
+                  "
+                >
+                  <sc-for
+                    list="{{ colHeaders }}"
+                    as="ch"
+                    hint-placeholder-count="4"
+                  >
+                    <div style="display: flex; align-items: center; gap: 8px">
+                      <span
+                        style="width:9px;height:9px;border-radius:3px;background:{{ ch.color }}"
+                      ></span>
+                      <span
+                        style="
+                          font-weight: 600;
+                          font-size: 12px;
+                          color: var(--text-bright);
+                          letter-spacing: 0.02em;
+                        "
+                        >{{ ch.label }}</span
+                      >
+                      <span
+                        style="
+                          font-family: 'JetBrains Mono', monospace;
+                          font-size: 10.5px;
+                          color: var(--text-dim);
+                          background: var(--bg-3);
+                          border: 1px solid var(--border);
+                          border-radius: 20px;
+                          padding: 1px 7px;
+                        "
+                        >{{ ch.count }}</span
+                      >
+                    </div>
+                  </sc-for>
+                </div>
+
+                <sc-for list="{{ lanes }}" as="lane" hint-placeholder-count="4">
+                  <div style="border-bottom: 1px solid var(--border)">
+                    <div
+                      onClick="{{ lane.toggle }}"
+                      style="
+                        display: flex;
+                        align-items: center;
+                        gap: 11px;
+                        padding: 11px 18px;
+                        cursor: pointer;
+                        background: var(--bg-2);
+                        position: sticky;
+                        top: 57px;
+                        z-index: 5;
+                        border-top: 1px solid var(--border);
+                      "
+                    >
+                      <span
+                        style="color:var(--text-dim);transition:transform .15s;transform:{{ lane.caret }};display:inline-flex"
+                      >
+                        <svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 16 16"
+                          fill="currentColor"
+                        >
+                          <path d="M6 4l5 4-5 4z" />
+                        </svg>
+                      </span>
+                      <span
+                        style="width:22px;height:22px;flex:none;border-radius:6px;background:color-mix(in srgb,{{ lane.color }} 20%,transparent);display:flex;align-items:center;justify-content:center;color:{{ lane.color }}"
+                      >
+                        {{ lane.icon }}
+                      </span>
+                      <span
+                        style="font-family:'JetBrains Mono',monospace;font-size:11px;color:{{ lane.color }};font-weight:600"
+                        >{{ lane.short }}</span
+                      >
+                      <span
+                        style="
+                          font-weight: 600;
+                          font-size: 13px;
+                          color: var(--text-bright);
+                          white-space: nowrap;
+                          overflow: hidden;
+                          text-overflow: ellipsis;
+                          max-width: 44%;
+                        "
+                        >{{ lane.title }}</span
+                      >
+                      <sc-if
+                        value="{{ lane.hasPrio }}"
+                        hint-placeholder-val="{{ true }}"
+                      >
+                        <span
+                          data-prio="{{ lane.prio }}"
+                          style="
+                            font-family: 'JetBrains Mono', monospace;
+                            font-size: 10px;
+                            font-weight: 600;
+                            color: var(--pc);
+                            border: 1px solid var(--pc);
+                            border-radius: 5px;
+                            padding: 1px 5px;
+                          "
+                          >{{ lane.prioLabel }}</span
+                        >
+                      </sc-if>
+                      <div style="flex: 1"></div>
+                      <div style="display: flex; align-items: center; gap: 9px">
+                        <div
+                          style="
+                            width: 120px;
+                            height: 6px;
+                            border-radius: 6px;
+                            background: var(--bg-3);
+                            overflow: hidden;
+                            border: 1px solid var(--border);
+                          "
+                        >
+                          <div
+                            style="height:100%;border-radius:6px;background:var(--c-closed);width:{{ lane.pct }}"
+                          ></div>
+                        </div>
+                        <span
+                          style="
+                            font-family: 'JetBrains Mono', monospace;
+                            font-size: 11px;
+                            color: var(--text-dim);
+                            min-width: 62px;
+                            text-align: right;
+                          "
+                          >{{ lane.done }}/{{ lane.total }} done</span
+                        >
+                      </div>
+                    </div>
+
+                    <sc-if
+                      value="{{ lane.open }}"
+                      hint-placeholder-val="{{ true }}"
+                    >
+                      <div
+                        style="
+                          display: grid;
+                          grid-template-columns: repeat(4, 1fr);
+                          gap: var(--board-gap);
+                          padding: 12px 18px 16px;
+                        "
+                      >
+                        <sc-for
+                          list="{{ lane.columns }}"
+                          as="col"
+                          hint-placeholder-count="4"
+                        >
+                          <div
+                            onDragOver="{{ col.onOver }}"
+                            onDrop="{{ col.onDrop }}"
+                            style="display:flex;flex-direction:column;gap:var(--card-gap);min-height:52px;border-radius:10px;padding:3px;transition:background .12s;background:{{ col.dropBg }}"
+                          >
+                            <sc-for
+                              list="{{ col.items }}"
+                              as="c"
+                              hint-placeholder-count="2"
+                            >
+                              <div
+                                draggable="true"
+                                onDragStart="{{ c.onStart }}"
+                                onDragEnd="{{ c.onEnd }}"
+                                onClick="{{ c.onOpen }}"
+                                data-prio="{{ c.prio }}"
+                                data-type="{{ c.type }}"
+                                data-st="{{ c.st }}"
+                                style="background:var(--card-bg);border:1px solid var(--border);border-left:3px solid var(--pc);border-radius:var(--card-radius);padding:var(--card-pad);box-shadow:var(--card-shadow);cursor:grab;transition:border-color .12s,transform .06s;opacity:{{ c.opacity }}"
+                                style-hover="border-color:var(--accent)"
+                              >
+                                <div
+                                  style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 7px;
+                                    margin-bottom: 6px;
+                                  "
+                                >
+                                  <span
+                                    style="
+                                      color: var(--tc);
+                                      display: inline-flex;
+                                      flex: none;
+                                    "
+                                    >{{ c.typeIcon }}</span
+                                  >
+                                  <span
+                                    style="
+                                      font-family: 'JetBrains Mono', monospace;
+                                      font-size: 11px;
+                                      color: var(--text-dim);
+                                    "
+                                    >{{ c.short }}</span
+                                  >
+                                  <div style="flex: 1"></div>
+                                  <span
+                                    style="
+                                      font-family: 'JetBrains Mono', monospace;
+                                      font-size: 9.5px;
+                                      font-weight: 600;
+                                      color: var(--pc);
+                                      background: color-mix(
+                                        in srgb,
+                                        var(--pc) 16%,
+                                        transparent
+                                      );
+                                      border-radius: 5px;
+                                      padding: 1px 5px;
+                                    "
+                                    >{{ c.prioLabel }}</span
+                                  >
+                                </div>
+                                <div
+                                  style="
+                                    font-size: 12.5px;
+                                    line-height: 1.4;
+                                    color: var(--text);
+                                    text-wrap: pretty;
+                                    display: -webkit-box;
+                                    -webkit-line-clamp: 3;
+                                    -webkit-box-orient: vertical;
+                                    overflow: hidden;
+                                  "
+                                >
+                                  {{ c.title }}
+                                </div>
+                                <div
+                                  style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 8px;
+                                    margin-top: 9px;
+                                  "
+                                >
+                                  <span
+                                    data-st="{{ c.st }}"
+                                    style="
+                                      display: inline-flex;
+                                      align-items: center;
+                                      gap: 5px;
+                                      font-size: 10.5px;
+                                      color: var(--sc);
+                                      font-weight: 500;
+                                    "
+                                  >
+                                    <span
+                                      style="width:7px;height:7px;border-radius:50%;background:var(--sc);animation:{{ c.dotAnim }}"
+                                    ></span
+                                    >{{ c.stLabel }}
+                                  </span>
+                                  <div style="flex: 1"></div>
+                                  <sc-if
+                                    value="{{ c.hasDeps }}"
+                                    hint-placeholder-val="{{ true }}"
+                                  >
+                                    <span
+                                      title="dependencies"
+                                      style="
+                                        display: inline-flex;
+                                        align-items: center;
+                                        gap: 3px;
+                                        font-family:
+                                          'JetBrains Mono', monospace;
+                                        font-size: 10px;
+                                        color: var(--text-dim);
+                                      "
+                                    >
+                                      <svg
+                                        width="11"
+                                        height="11"
+                                        viewBox="0 0 16 16"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="1.4"
+                                      >
+                                        <path
+                                          d="M6.5 9.5l3-3M5 11a2 2 0 0 1 0-3l1.5-1.5M11 5a2 2 0 0 1 0 3L9.5 9.5"
+                                          stroke-linecap="round"
+                                        /></svg
+                                      >{{ c.depCount }}
+                                    </span>
+                                  </sc-if>
+                                </div>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isEpics }}" hint-placeholder-val="{{ true }}">
+              <div
+                style="
+                  max-width: 1000px;
+                  margin: 0 auto;
+                  padding: 22px 24px 48px;
+                "
+              >
+                <sc-for list="{{ epicRows }}" as="e" hint-placeholder-count="5">
+                  <div
+                    style="
+                      border: 1px solid var(--border);
+                      border-radius: 12px;
+                      background: var(--bg-2);
+                      margin-bottom: 12px;
+                      overflow: hidden;
+                    "
+                  >
+                    <div
+                      onClick="{{ e.toggle }}"
+                      style="
+                        display: flex;
+                        align-items: center;
+                        gap: 13px;
+                        padding: 15px 18px;
+                        cursor: pointer;
+                      "
+                    >
+                      <span
+                        style="width:30px;height:30px;flex:none;border-radius:8px;background:color-mix(in srgb,{{ e.color }} 18%,transparent);display:flex;align-items:center;justify-content:center;color:{{ e.color }}"
+                        >{{ e.icon }}</span
+                      >
+                      <div style="min-width: 0; flex: 1">
+                        <div
+                          style="
+                            display: flex;
+                            align-items: center;
+                            gap: 9px;
+                            margin-bottom: 3px;
+                          "
+                        >
+                          <span
+                            style="font-family:'JetBrains Mono',monospace;font-size:11px;color:{{ e.color }}"
+                            >{{ e.short }}</span
+                          >
+                          <span
+                            data-prio="{{ e.prio }}"
+                            style="
+                              font-family: 'JetBrains Mono', monospace;
+                              font-size: 9.5px;
+                              font-weight: 600;
+                              color: var(--pc);
+                              border: 1px solid var(--pc);
+                              border-radius: 5px;
+                              padding: 1px 5px;
+                            "
+                            >{{ e.prioLabel }}</span
+                          >
+                          <span
+                            data-st="{{ e.st }}"
+                            style="font-size: 10.5px; color: var(--sc)"
+                            >{{ e.stLabel }}</span
+                          >
+                        </div>
+                        <div
+                          style="
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: var(--text-bright);
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                          "
+                        >
+                          {{ e.title }}
+                        </div>
+                      </div>
+                      <div
+                        style="
+                          display: flex;
+                          flex-direction: column;
+                          align-items: flex-end;
+                          gap: 6px;
+                          width: 220px;
+                          flex: none;
+                        "
+                      >
+                        <div
+                          style="
+                            display: flex;
+                            gap: 10px;
+                            font-family: 'JetBrains Mono', monospace;
+                            font-size: 10.5px;
+                            color: var(--text-dim);
+                          "
+                        >
+                          <span style="color: var(--c-blocked)"
+                            >{{ e.nBlocked }} blkd</span
+                          >
+                          <span style="color: var(--c-ready)"
+                            >{{ e.nReady }} ready</span
+                          >
+                          <span style="color: var(--c-inprog)"
+                            >{{ e.nInprog }} wip</span
+                          >
+                          <span>{{ e.done }}/{{ e.total }}</span>
+                        </div>
+                        <div
+                          style="
+                            width: 100%;
+                            height: 7px;
+                            border-radius: 6px;
+                            background: var(--bg-3);
+                            overflow: hidden;
+                            border: 1px solid var(--border);
+                            display: flex;
+                          "
+                        >
+                          <div
+                            style="height:100%;background:var(--c-closed);width:{{ e.pctDone }}"
+                          ></div>
+                          <div
+                            style="height:100%;background:var(--c-inprog);width:{{ e.pctWip }}"
+                          ></div>
+                        </div>
+                      </div>
+                      <span
+                        style="color:var(--text-dim);transform:{{ e.caret }};transition:transform .15s;display:inline-flex"
+                        ><svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 16 16"
+                          fill="currentColor"
+                        >
+                          <path d="M6 4l5 4-5 4z" /></svg
+                      ></span>
+                    </div>
+                    <sc-if
+                      value="{{ e.open }}"
+                      hint-placeholder-val="{{ true }}"
+                    >
+                      <div style="border-top: 1px solid var(--border)">
+                        <sc-for
+                          list="{{ e.children }}"
+                          as="c"
+                          hint-placeholder-count="3"
+                        >
+                          <div
+                            onClick="{{ c.onOpen }}"
+                            style="
+                              display: flex;
+                              align-items: center;
+                              gap: 11px;
+                              padding: 9px 18px 9px 22px;
+                              border-top: 1px solid var(--border);
+                              cursor: pointer;
+                              background: var(--bg);
+                            "
+                            style-hover="background:var(--bg-hover)"
+                          >
+                            <span
+                              data-st="{{ c.st }}"
+                              style="
+                                width: 8px;
+                                height: 8px;
+                                border-radius: 50%;
+                                background: var(--sc);
+                                flex: none;
+                              "
+                            ></span>
+                            <span
+                              style="
+                                color: var(--tc);
+                                display: inline-flex;
+                                flex: none;
+                              "
+                              data-type="{{ c.type }}"
+                              >{{ c.typeIcon }}</span
+                            >
+                            <span
+                              style="
+                                font-family: 'JetBrains Mono', monospace;
+                                font-size: 11px;
+                                color: var(--text-dim);
+                                width: 74px;
+                                flex: none;
+                              "
+                              >{{ c.short }}</span
+                            >
+                            <span
+                              style="
+                                font-size: 12.5px;
+                                color: var(--text);
+                                flex: 1;
+                                min-width: 0;
+                                white-space: nowrap;
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                              "
+                              >{{ c.title }}</span
+                            >
+                            <span
+                              data-prio="{{ c.prio }}"
+                              style="
+                                font-family: 'JetBrains Mono', monospace;
+                                font-size: 9.5px;
+                                font-weight: 600;
+                                color: var(--pc);
+                                border: 1px solid var(--pc);
+                                border-radius: 5px;
+                                padding: 1px 5px;
+                                flex: none;
+                              "
+                              >{{ c.prioLabel }}</span
+                            >
+                            <span
+                              data-st="{{ c.st }}"
+                              style="
+                                font-size: 10.5px;
+                                color: var(--sc);
+                                width: 80px;
+                                text-align: right;
+                                flex: none;
+                              "
+                              >{{ c.stLabel }}</span
+                            >
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isIssues }}" hint-placeholder-val="{{ true }}">
+              <div style="padding: 0 0 40px">
+                <div
+                  style="
+                    display: grid;
+                    grid-template-columns: 34px 108px 1fr 150px 58px 128px;
+                    gap: 0;
+                    position: sticky;
+                    top: 0;
+                    background: var(--bg);
+                    border-bottom: 1px solid var(--border);
+                    z-index: 4;
+                    padding: 0 20px;
+                  "
+                >
+                  <div
+                    style="
+                      padding: 11px 0;
+                      font-size: 10.5px;
+                      font-weight: 600;
+                      color: var(--text-dim);
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                    "
+                  ></div>
+                  <div
+                    style="
+                      padding: 11px 0;
+                      font-size: 10.5px;
+                      font-weight: 600;
+                      color: var(--text-dim);
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                    "
+                  >
+                    ID
+                  </div>
+                  <div
+                    style="
+                      padding: 11px 0;
+                      font-size: 10.5px;
+                      font-weight: 600;
+                      color: var(--text-dim);
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                    "
+                  >
+                    Title
+                  </div>
+                  <div
+                    style="
+                      padding: 11px 0;
+                      font-size: 10.5px;
+                      font-weight: 600;
+                      color: var(--text-dim);
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                    "
+                  >
+                    Epic
+                  </div>
+                  <div
+                    style="
+                      padding: 11px 0;
+                      font-size: 10.5px;
+                      font-weight: 600;
+                      color: var(--text-dim);
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                    "
+                  >
+                    Prio
+                  </div>
+                  <div
+                    style="
+                      padding: 11px 0;
+                      font-size: 10.5px;
+                      font-weight: 600;
+                      color: var(--text-dim);
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                    "
+                  >
+                    Status
+                  </div>
+                </div>
+                <sc-for
+                  list="{{ issueRows }}"
+                  as="c"
+                  hint-placeholder-count="12"
+                >
+                  <div
+                    onClick="{{ c.onOpen }}"
+                    style="display:grid;grid-template-columns:34px 108px 1fr 150px 58px 128px;gap:0;align-items:center;padding:0 20px;border-bottom:1px solid var(--border);cursor:pointer;background:{{ c.rowBg }}"
+                    style-hover="background:var(--bg-hover)"
+                  >
+                    <div
+                      style="color: var(--tc); display: inline-flex"
+                      data-type="{{ c.type }}"
+                    >
+                      {{ c.typeIcon }}
+                    </div>
+                    <div
+                      style="
+                        font-family: 'JetBrains Mono', monospace;
+                        font-size: 11.5px;
+                        color: var(--accent);
+                        padding: 11px 0;
+                      "
+                    >
+                      {{ c.short }}
+                    </div>
+                    <div
+                      style="
+                        font-size: 13px;
+                        color: var(--text);
+                        padding: 11px 12px 11px 0;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                      "
+                    >
+                      {{ c.title }}
+                    </div>
+                    <div
+                      style="
+                        font-size: 11px;
+                        color: var(--text-dim);
+                        font-family: 'JetBrains Mono', monospace;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        padding-right: 10px;
+                      "
+                    >
+                      {{ c.epicShort }}
+                    </div>
+                    <div>
+                      <span
+                        data-prio="{{ c.prio }}"
+                        style="
+                          font-family: 'JetBrains Mono', monospace;
+                          font-size: 9.5px;
+                          font-weight: 600;
+                          color: var(--pc);
+                          border: 1px solid var(--pc);
+                          border-radius: 5px;
+                          padding: 1px 5px;
+                        "
+                        >{{ c.prioLabel }}</span
+                      >
+                    </div>
+                    <div>
+                      <span
+                        data-st="{{ c.st }}"
+                        style="
+                          display: inline-flex;
+                          align-items: center;
+                          gap: 6px;
+                          font-size: 11px;
+                          color: var(--sc);
+                        "
+                        ><span
+                          style="
+                            width: 7px;
+                            height: 7px;
+                            border-radius: 50%;
+                            background: var(--sc);
+                          "
+                        ></span
+                        >{{ c.stLabel }}</span
+                      >
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <sc-if value="{{ hasSelected }}" hint-placeholder-val="{{ false }}">
+          <div style="display: contents">
+            <div
+              onClick="{{ closeDetail }}"
+              style="
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.35);
+                z-index: 39;
+                animation: slidein 0.18s ease;
+              "
+            ></div>
+            <div
+              style="
+                position: fixed;
+                top: 0;
+                right: 0;
+                height: 100vh;
+                width: 440px;
+                z-index: 40;
+                background: var(--bg-2);
+                border-left: 1px solid var(--border);
+                display: flex;
+                flex-direction: column;
+                animation: slidein 0.18s ease;
+                box-shadow: -8px 0 24px var(--shadow);
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                  padding: 14px 18px;
+                  border-bottom: 1px solid var(--border);
+                "
+              >
+                <span
+                  style="color: var(--tc); display: inline-flex"
+                  data-type="{{ sel.type }}"
+                  >{{ sel.typeIcon }}</span
+                >
+                <span
+                  style="
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 12px;
+                    color: var(--text-dim);
+                  "
+                  >{{ sel.id }}</span
+                >
+                <div style="flex: 1"></div>
+                <span
+                  data-prio="{{ sel.prio }}"
+                  style="
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 10px;
+                    font-weight: 600;
+                    color: var(--pc);
+                    border: 1px solid var(--pc);
+                    border-radius: 5px;
+                    padding: 2px 6px;
+                  "
+                  >{{ sel.prioLabel }}</span
+                >
+                <span
+                  data-st="{{ sel.st }}"
+                  style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    font-size: 11px;
+                    color: var(--sc);
+                  "
+                  ><span
+                    style="
+                      width: 7px;
+                      height: 7px;
+                      border-radius: 50%;
+                      background: var(--sc);
+                    "
+                  ></span
+                  >{{ sel.stLabel }}</span
+                >
+                <button
+                  onClick="{{ closeDetail }}"
+                  style="
+                    border: none;
+                    background: transparent;
+                    color: var(--text-dim);
+                    cursor: pointer;
+                    padding: 4px;
+                    border-radius: 6px;
+                    display: inline-flex;
+                  "
+                  style-hover="background:var(--bg-hover);color:var(--text)"
+                >
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  >
+                    <path d="M4 4l8 8M12 4l-8 8" />
+                  </svg>
+                </button>
+              </div>
+              <div style="flex: 1; overflow: auto; padding: 18px">
+                <h2
+                  style="
+                    margin: 0 0 14px;
+                    font-size: 17px;
+                    line-height: 1.35;
+                    color: var(--text-bright);
+                    font-weight: 600;
+                    text-wrap: pretty;
+                  "
+                >
+                  {{ sel.title }}
+                </h2>
+                <div
+                  style="
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                    margin-bottom: 18px;
+                  "
+                >
+                  <sc-if
+                    value="{{ sel.hasEpic }}"
+                    hint-placeholder-val="{{ false }}"
+                  >
+                    <button
+                      onClick="{{ sel.gotoEpic }}"
+                      style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;background:var(--bg-3);border:1px solid var(--border);border-radius:7px;padding:5px 9px;cursor:pointer;color:{{ sel.epicColor }}"
+                    >
+                      {{ sel.epicIcon }}<span style="color: var(--text)"
+                        >{{ sel.epicTitle }}</span
+                      >
+                    </button>
+                  </sc-if>
+                  <span
+                    style="
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 6px;
+                      font-size: 11.5px;
+                      background: var(--bg-3);
+                      border: 1px solid var(--border);
+                      border-radius: 7px;
+                      padding: 5px 9px;
+                      color: var(--text-dim);
+                    "
+                    >type
+                    <b style="color: var(--tc)" data-type="{{ sel.type }}"
+                      >{{ sel.type }}</b
+                    ></span
+                  >
+                  <sc-if
+                    value="{{ sel.hasAssignee }}"
+                    hint-placeholder-val="{{ false }}"
+                  >
+                    <span
+                      style="
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        font-size: 11.5px;
+                        background: var(--bg-3);
+                        border: 1px solid var(--border);
+                        border-radius: 7px;
+                        padding: 5px 9px;
+                        color: var(--text-dim);
+                      "
+                      ><span
+                        style="
+                          width: 16px;
+                          height: 16px;
+                          border-radius: 50%;
+                          background: var(--accent);
+                          color: #fff;
+                          font-size: 9px;
+                          display: inline-flex;
+                          align-items: center;
+                          justify-content: center;
+                          font-weight: 600;
+                        "
+                        >{{ sel.initials }}</span
+                      >{{ sel.assignee }}</span
+                    >
+                  </sc-if>
+                </div>
+
+                <div
+                  style="
+                    font-size: 10.5px;
+                    font-weight: 600;
+                    color: var(--text-dim);
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    margin-bottom: 7px;
+                  "
+                >
+                  Description
+                </div>
+                <p
+                  style="
+                    margin: 0 0 20px;
+                    font-size: 13px;
+                    line-height: 1.6;
+                    color: var(--text);
+                    text-wrap: pretty;
+                    white-space: pre-wrap;
+                  "
+                >
+                  {{ sel.desc }}
+                </p>
+
+                <sc-if
+                  value="{{ sel.hasAc }}"
+                  hint-placeholder-val="{{ false }}"
+                >
+                  <div
+                    style="
+                      font-size: 10.5px;
+                      font-weight: 600;
+                      color: var(--text-dim);
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                      margin-bottom: 7px;
+                    "
+                  >
+                    Acceptance criteria
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      gap: 9px;
+                      font-size: 12.5px;
+                      line-height: 1.55;
+                      color: var(--text);
+                      background: var(--bg-3);
+                      border: 1px solid var(--border);
+                      border-left: 3px solid var(--c-ready);
+                      border-radius: 8px;
+                      padding: 11px 13px;
+                      margin-bottom: 20px;
+                    "
+                  >
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="var(--c-ready)"
+                      stroke-width="1.8"
+                      style="flex: none; margin-top: 1px"
+                    >
+                      <path
+                        d="M3 8.5l3 3 7-8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                    <span style="text-wrap: pretty">{{ sel.ac }}</span>
+                  </div>
+                </sc-if>
+
+                <sc-if
+                  value="{{ sel.hasDeps }}"
+                  hint-placeholder-val="{{ false }}"
+                >
+                  <div
+                    style="
+                      font-size: 10.5px;
+                      font-weight: 600;
+                      color: var(--text-dim);
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                      margin-bottom: 7px;
+                    "
+                  >
+                    Dependencies
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      flex-direction: column;
+                      gap: 6px;
+                      margin-bottom: 20px;
+                    "
+                  >
+                    <sc-for
+                      list="{{ sel.deps }}"
+                      as="d"
+                      hint-placeholder-count="2"
+                    >
+                      <button
+                        onClick="{{ d.onOpen }}"
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 9px;
+                          text-align: left;
+                          background: var(--bg-3);
+                          border: 1px solid var(--border);
+                          border-radius: 8px;
+                          padding: 8px 11px;
+                          cursor: pointer;
+                        "
+                        style-hover="border-color:var(--accent)"
+                      >
+                        <span
+                          style="font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:{{ d.color }};border:1px solid {{ d.color }};border-radius:4px;padding:1px 5px;flex:none"
+                          >{{ d.rel }}</span
+                        >
+                        <span
+                          style="
+                            font-family: 'JetBrains Mono', monospace;
+                            font-size: 11px;
+                            color: var(--accent);
+                            flex: none;
+                          "
+                          >{{ d.short }}</span
+                        >
+                        <span
+                          style="
+                            font-size: 12px;
+                            color: var(--text);
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                          "
+                          >{{ d.title }}</span
+                        >
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if
+                  value="{{ sel.hasClose }}"
+                  hint-placeholder-val="{{ false }}"
+                >
+                  <div
+                    style="
+                      font-size: 10.5px;
+                      font-weight: 600;
+                      color: var(--text-dim);
+                      text-transform: uppercase;
+                      letter-spacing: 0.05em;
+                      margin-bottom: 7px;
+                    "
+                  >
+                    Close reason
+                  </div>
+                  <p
+                    style="
+                      margin: 0 0 20px;
+                      font-size: 12.5px;
+                      line-height: 1.6;
+                      color: var(--text-dim);
+                      text-wrap: pretty;
+                      border-left: 3px solid var(--c-closed);
+                      padding-left: 12px;
+                    "
+                  >
+                    {{ sel.closeReason }}
+                  </p>
+                </sc-if>
+
+                <div
+                  style="
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 12px 18px;
+                    padding-top: 16px;
+                    border-top: 1px solid var(--border);
+                    font-size: 11.5px;
+                  "
+                >
+                  <div>
+                    <div style="color: var(--text-dim); margin-bottom: 2px">
+                      Created
+                    </div>
+                    <div style="color: var(--text)">{{ sel.created }}</div>
+                  </div>
+                  <div>
+                    <div style="color: var(--text-dim); margin-bottom: 2px">
+                      Updated
+                    </div>
+                    <div style="color: var(--text)">{{ sel.updated }}</div>
+                  </div>
+                  <div>
+                    <div style="color: var(--text-dim); margin-bottom: 2px">
+                      Reporter
+                    </div>
+                    <div style="color: var(--text)">{{ sel.reporter }}</div>
+                  </div>
+                  <div>
+                    <div style="color: var(--text-dim); margin-bottom: 2px">
+                      Dependents
+                    </div>
+                    <div style="color: var(--text)">{{ sel.dependents }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{"$preview":{"width":"100%","height":"100%"}}'
+    >
+      const PROJECT = "TcAgentPlugin";
+      const ICON = {
+        bug: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M5 6a3 3 0 0 1 6 0v3a3 3 0 0 1-6 0z" fill="currentColor" fill-opacity=".15"/><path d="M8 3.5V2M5.5 5L4 3.8M10.5 5L12 3.8M5 8H2.5M11 8h2.5M5.4 10.5L4 11.6M10.6 10.5L12 11.6"/></svg>',
+        task: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2.5"/><path d="M5 8l2 2 4-4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        feature: '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l1.7 4 4.3.3-3.3 2.8 1 4.2L8 10.4 4.3 12.5l1-4.2L2 5.5l4.3-.3z"/></svg>',
+        epic: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 2l5.5 3L8 8 2.5 5z" fill="currentColor" fill-opacity=".18"/><path d="M2.5 8L8 11l5.5-3M2.5 11L8 14l5.5-3"/></svg>'
+      };
+      const NAV_ICON = {
+        board: '<svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="3" width="4" height="14" rx="1.2"/><rect x="8" y="3" width="4" height="9" rx="1.2"/><rect x="13.5" y="3" width="4" height="11" rx="1.2"/></svg>',
+        epics: '<svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M10 2.5l6.5 3.5L10 9.5 3.5 6z"/><path d="M3.5 10L10 13.5 16.5 10M3.5 14L10 17.5 16.5 14"/></svg>',
+        issues: '<svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h9"/></svg>'
+      };
+      const SUN = '<svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="3.4"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.3 4.3l1.4 1.4M14.3 14.3l1.4 1.4M15.7 4.3l-1.4 1.4M5.7 14.3l-1.4 1.4"/></svg>';
+      const MOON = '<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path d="M11 2.5a7.5 7.5 0 1 0 6.5 11.2A6 6 0 0 1 11 2.5z"/></svg>';
+
+      const PLABEL = ["P0","P1","P2","P3"];
+      const PVAR = ["--p0","--p1","--p2","--p3"];
+      const COLS = [
+        {key:"blocked",label:"Blocked",color:"var(--c-blocked)"},
+        {key:"ready",label:"Ready",color:"var(--c-ready)"},
+        {key:"inprog",label:"In progress",color:"var(--c-inprog)"},
+        {key:"closed",label:"Closed",color:"var(--c-closed)"}
+      ];
+      const STLABEL = {blocked:"Blocked",ready:"Ready",inprog:"In progress",closed:"Closed"};
+
+      const EPICS = [
+        {id:"TcAgentPlugin-l9s",short:"l9s",prio:0,title:"Native C# Structured-Text interpreter",color:"var(--t-feature)",icon:ICON.epic,st:"inprog"},
+        {id:"TcAgentPlugin-p77",short:"p77",prio:1,title:"Host \u2194 WebView protocol & envelope",color:"var(--accent)",icon:ICON.epic,st:"inprog"},
+        {id:"TcAgentPlugin-e7d",short:"e7d",prio:1,title:"Merge WebView2 spike \u2192 testable chat UI",color:"var(--c-ready)",icon:ICON.epic,st:"inprog"},
+        {id:"TcAgentPlugin-77x",short:"77x",prio:1,title:"System prompt & session context",color:"var(--p1)",icon:ICON.epic,st:"inprog"},
+        {id:"TcAgentPlugin-d4i",short:"d4i",prio:2,title:"Skill system & catalogue",color:"#7b5cff",icon:ICON.epic,st:"blocked"}
+      ];
+
+      function mk(id,ep,type,prio,col,title,extra){return Object.assign({id,ep,type,prio,col,title,deps:[],reporter:"Patrick de Kuijer",created:"Jul 17, 2026",updated:"Jul 19, 2026",dependents:0},extra||{});}
+
+      const ISSUES = [
+        mk("TcAgentPlugin-l9s.1","TcAgentPlugin-l9s","feature",0,"inprog",".TcPOU / .TcDUT XML \u2192 native AST parser",{assignee:"Patrick de Kuijer",desc:"Parse TwinCAT .TcPOU/.TcDUT/.TcGVL XML directly into our own AST \u2014 pure managed, no external toolchain. Foundation for the whole interpreter epic.",ac:"Round-trips the 67-POU real corpus into an AST without loss; declarations, methods and properties all recognised.",deps:[{id:"TcAgentPlugin-l9s.10",rel:"blocks"}],dependents:2}),
+        mk("TcAgentPlugin-l9s.2","TcAgentPlugin-l9s","feature",1,"ready","Control-flow evaluation (IF / CASE / FOR / WHILE)",{desc:"Tree-walking evaluator for the v1 control-flow subset over the AST from l9s.1.",ac:"All four constructs execute with correct scoping and loop bounds against the interpreter self-test suite.",deps:[{id:"TcAgentPlugin-l9s.1",rel:"blocks"}]}),
+        mk("TcAgentPlugin-l9s.3","TcAgentPlugin-l9s","feature",1,"blocked","METHOD / PROPERTY + EXTENDS dispatch",{desc:"Virtual method dispatch, THIS^ / SUPER^, property getters/setters and single-inheritance EXTENDS \u2014 the OO core that dominates the real corpus.",ac:"Method dispatch and THIS/SUPER match the strucpp differential oracle on the OO subset.",deps:[{id:"TcAgentPlugin-l9s.1",rel:"blocks"}]}),
+        mk("TcAgentPlugin-l9s.4","TcAgentPlugin-l9s","feature",2,"blocked","POINTER TO / REFERENCE TO + ADR operator",{desc:"Address-of, dereference and reference semantics for the pointer subset (24 REFERENCE, 8 POINTER files in corpus).",ac:"Deref/assign through pointers and references behaves per IEC spec on targeted tests.",deps:[{id:"TcAgentPlugin-l9s.1",rel:"blocks"}]}),
+        mk("TcAgentPlugin-l9s.5","TcAgentPlugin-l9s","task",3,"ready","strucpp differential oracle (throwaway)",{desc:"One-shot reference harness comparing our interpreter against strucpp on the OO/pointer subset. Discarded after l9s.3 lands \u2014 not a pipeline component.",ac:"Produces a pass/fail diff report for method-dispatch & pointer cases; MinGW removed afterward."}),
+        mk("TcAgentPlugin-l9s.10","TcAgentPlugin-l9s","task",1,"closed","Decide: strucpp backend vs native C# ST interpreter",{closeReason:"Native C# ST interpreter chosen over strucpp; v1 subset + test-file story + oracle role resolved.",desc:"Do we build on strucpp (external GPL binary, MinGW g++, converter with reject list) or write a native C# ST interpreter parsing .TcPOU XML directly?",ac:"A written decision blocking the epic; every other ticket assumes a backend.",updated:"Jul 19, 2026",dependents:5}),
+        mk("TcAgentPlugin-p77.4","TcAgentPlugin-p77","feature",1,"closed","Design {id,type,payload} envelope",{closeReason:"Envelope contract designed and documented; adopted by e7d.3 wiring work.",desc:"Define the host\u2194webview message envelope: {id, type, payload}. Every message the ToolWindow and webview exchange rides this shape.",ac:"Documented envelope with request/response correlation via id.",dependents:1}),
+        mk("TcAgentPlugin-p77.7","TcAgentPlugin-p77","task",2,"closed","Bottom control-bar contract",{closeReason:"Control-bar events specified.",desc:"Specify the events emitted by the chat bottom control bar.",dependents:0}),
+        mk("TcAgentPlugin-p77.8","TcAgentPlugin-p77","task",2,"inprog","Model / provider picker events",{assignee:"Patrick de Kuijer",desc:"Wire provider + model selection through the envelope so the picker in the webview drives AiCore config.",ac:"Selecting a provider/model in the UI updates the active client."}),
+        mk("TcAgentPlugin-p77.11","TcAgentPlugin-p77","task",3,"ready","Defer VS-SDK test infrastructure",{desc:"Document why net472 VS-SDK-referencing test infra is deferred; keep Auth unit-testable on net9.0 xUnit instead."}),
+        mk("TcAgentPlugin-p77.12","TcAgentPlugin-p77","bug",1,"blocked","Reconnect / heartbeat when webview drops",{desc:"WebView2 occasionally loses the postMessage channel after sleep/resume; add a heartbeat + reconnect handshake.",ac:"Channel recovers within 2s of a dropped connection without losing queued messages.",deps:[{id:"TcAgentPlugin-p77.8",rel:"blocks"}]}),
+        mk("TcAgentPlugin-e7d.1","TcAgentPlugin-e7d","task",1,"closed","Port spike ChatToolWindow / WebView2 scaffolding",{closeReason:"Ported scaffolding into master's src/VsShellShared (classic net472 project); reconciled DPAPI store into VsShellShared.Auth.",desc:"Port ChatToolWindowPackage, ChatToolWindow, Guids, the show-command, XAML, .vsct and manifest from the spike branch into master's VsShellShared.",ac:"src/VsShellShared builds and the ToolWindow opens in the VS2017 experimental instance.",dependents:3}),
+        mk("TcAgentPlugin-e7d.2","TcAgentPlugin-e7d","feature",1,"closed","Replace ping-pong page with a real chat UI",{closeReason:"Real chat UI built from the agreed mockup (fake data, reviewable in browser); committed a4b8039.",desc:"Build the actual chat UI: message list, input box, model/provider picker and bottom control bar. Pure HTML/CSS/JS in Resources, no networking.",ac:"Static UI reviewable in a browser with fake data before wiring to AiCore.",dependents:3}),
+        mk("TcAgentPlugin-e7d.3","TcAgentPlugin-e7d","feature",1,"closed","Wire chat UI to AiClient via the envelope",{closeReason:"Smoke-tested manually: message to local LM Studio streams response correctly in ToolWindow.",desc:"Connect the chat UI to AiCore.AiClient through the {id,type,payload} envelope: send a message, stream AssistantMessageEvent deltas, surface provider/model selection.",ac:"Typing a message against a real or local provider streams a visible response.",deps:[{id:"TcAgentPlugin-p77.4",rel:"blocks"},{id:"TcAgentPlugin-e7d.2",rel:"blocks"}]}),
+        mk("TcAgentPlugin-e7d.4","TcAgentPlugin-e7d","task",1,"closed","Minimal VSIX packaging so it installs in VS2017",{closeReason:"VsShellShared.csproj builds directly to an installable .vsix, verified end-to-end into the VS2017 experimental instance.",desc:"Add packaging so the extension can be built, installed and manually tested end-to-end in VS2017.",ac:"A build produces a .vsix that installs and shows the chat ToolWindow.",deps:[{id:"TcAgentPlugin-e7d.1",rel:"blocks"}]}),
+        mk("TcAgentPlugin-e7d.5","TcAgentPlugin-e7d","feature",2,"inprog","Tool-call rendering in the message list",{assignee:"Patrick de Kuijer",desc:"Render tool-call requests/results as distinct blocks in the message list (collapsible args + output).",ac:"A tool call shows name, args and result inline, visually separate from assistant text."}),
+        mk("TcAgentPlugin-e7d.6","TcAgentPlugin-e7d","feature",1,"ready","Auth prompt (device-code / API-key) UX",{desc:"Thread IAuthInteraction through the webview so device-code and API-key entry are handled in-panel.",ac:"An unauthenticated provider prompts in-panel and resumes the pending message after auth."}),
+        mk("TcAgentPlugin-77x.2","TcAgentPlugin-77x","task",2,"closed","Research: how pi assembles its system prompt",{closeReason:"Findings written up; single-function fixed-order assembly documented.",desc:"Investigate how the reference agent assembles its system prompt in one place, in a fixed order.",dependents:1}),
+        mk("TcAgentPlugin-77x.3","TcAgentPlugin-77x","feature",1,"inprog","Session persistence across restarts",{assignee:"Patrick de Kuijer",desc:"Persist chat sessions (messages + context) so a reopened ToolWindow restores prior conversation.",ac:"Closing and reopening VS restores the last session's messages and context."}),
+        mk("TcAgentPlugin-77x.5","TcAgentPlugin-77x","task",1,"closed","SystemPromptComposer: single assembly point",{closeReason:"SystemPromptComposer implemented, tested, wired into HandleChatSendCoreAsync (no-op today, all sections null).",desc:"One composer that assembles, in fixed order: base persona \u2192 session context \u2192 skill catalogue. ChatSessionHost sets Context.System only through it.",ac:"Composer with unit tests; empty inputs preserve today's null-System behaviour.",deps:[{id:"TcAgentPlugin-77x.2",rel:"blocks"}],dependents:2}),
+        mk("TcAgentPlugin-77x.6","TcAgentPlugin-77x","task",2,"ready","Token-budget trimming for session context",{desc:"Trim oldest session context to fit the model's token budget before composing the system prompt.",ac:"Context stays under budget; trimming is logged and deterministic."}),
+        mk("TcAgentPlugin-d4i.3","TcAgentPlugin-d4i","feature",2,"ready","Skill catalogue loading",{desc:"Load available skills into a catalogue the SystemPromptComposer can inject.",ac:"Catalogue lists installed skills in the documented format consumed by 77x.5."}),
+        mk("TcAgentPlugin-d4i.4","TcAgentPlugin-d4i","feature",2,"blocked","Skill invocation from chat",{desc:"Let the agent invoke a catalogued skill mid-conversation and stream its result back.",ac:"A skill invoked from chat runs and its output appears in the message list.",deps:[{id:"TcAgentPlugin-d4i.3",rel:"blocks"}]}),
+        mk("TcAgentPlugin-a2c",null,"bug",0,"inprog","Crash on empty provider list at startup",{assignee:"Patrick de Kuijer",desc:"If no providers are configured, the ToolWindow throws on first render instead of showing an empty state.",ac:"Empty provider list shows a friendly 'add a provider' state, no exception."}),
+        mk("TcAgentPlugin-b4d",null,"bug",1,"ready","Flaky WebView2 init on cold start",{desc:"On a cold machine the WebView2 runtime sometimes initialises after the first message is sent, dropping it.",ac:"First message is queued until the webview signals ready."}),
+        mk("TcAgentPlugin-6lm.1",null,"task",1,"closed","Extract chat.html \u003cscript\u003e block into chat.js",{closeReason:"Flat extract done, verified via full VSIX build + audit.",desc:"Mechanical move of the ~1160-line inline script block into Resources/chat.js, referenced with a deferred external script. No logic changes.",ac:"Chat still loads and functions in WebView2 after the extract.",dependents:3}),
+        mk("TcAgentPlugin-z0k",null,"task",3,"ready","Update README with VSIX install steps",{desc:"Document how to build and side-load the .vsix into a VS2017 experimental instance."})
+      ];
+
+      class Component extends DCLogic {
+        state = {
+          theme: "dark", dir: "soft", view: "board",
+          search: "", hideClosed: false, prio: {0:true,1:true,2:true,3:true},
+          laneOpen: {}, epicOpen: {}, selected: null, dragId: null, dragOverCol: null,
+          issues: ISSUES.map(i => ({...i}))
+        };
+
+        ic(str){ return React.createElement("span", { style:{display:"inline-flex"}, dangerouslySetInnerHTML:{__html: str} }); }
+        short(id){ return String(id).replace(PROJECT + "-", ""); }
+        epicById(id){ return EPICS.find(e => e.id === id); }
+        issueById(id){ return this.state.issues.find(i => i.id === id); }
+
+        passes(i){
+          const s = this.state;
+          if (!s.prio[i.prio]) return false;
+          if (s.hideClosed && i.col === "closed") return false;
+          if (s.search){ const q = s.search.toLowerCase(); if (!(i.id.toLowerCase().includes(q) || i.title.toLowerCase().includes(q))) return false; }
+          return true;
+        }
+
+        cardVM(i){
+          return {
+            id: i.id, short: this.short(i.id), title: i.title, type: i.type, prio: String(i.prio),
+            prioLabel: PLABEL[i.prio], st: i.col, stLabel: STLABEL[i.col],
+            typeIcon: this.ic(ICON[i.type]), epicShort: i.ep ? this.short(i.ep) : "\u2014",
+            depCount: i.deps.length, hasDeps: i.deps.length > 0,
+            dotAnim: i.col === "inprog" ? "pulse 1.6s ease-in-out infinite" : "none",
+            opacity: this.state.dragId === i.id ? "0.4" : "1",
+            rowBg: this.state.selected === i.id ? "var(--sel)" : "transparent",
+            onOpen: () => this.setState({ selected: i.id }),
+            onStart: (e) => { try{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", i.id);}catch(_){} this.setState({ dragId: i.id }); },
+            onEnd: () => this.setState({ dragId: null, dragOverCol: null })
+          };
+        }
+
+        moveTo(laneKey, colKey){
+          const id = this.state.dragId; if (!id) return;
+          const issues = this.state.issues.map(x => x.id === id ? {...x, col: colKey, ep: (laneKey === "__none" ? null : laneKey)} : x);
+          this.setState({ issues, dragId: null, dragOverCol: null });
+        }
+
+        laneCounts(){
+          const c = {blocked:0,ready:0,inprog:0,closed:0};
+          this.state.issues.forEach(i => { if (this.passes(i)) c[i.col]++; });
+          return c;
+        }
+
+        buildLanes(){
+          const laneDefs = EPICS.map(e => ({ ...e, key: e.id }));
+          laneDefs.push({ id:"__none", key:"__none", short:"none", prio:null, title:"No epic \u00b7 orphan issues", color:"var(--text-dim)", icon:ICON.task, st:null });
+          const out = [];
+          laneDefs.forEach(def => {
+            const mine = this.state.issues.filter(i => (def.key === "__none" ? !i.ep : i.ep === def.id));
+            const shown = mine.filter(i => this.passes(i));
+            if (shown.length === 0 && this.state.search) return;
+            const total = mine.length, done = mine.filter(i => i.col === "closed").length;
+            const pct = total ? Math.round(done/total*100) : 0;
+            const open = this.state.laneOpen[def.key] !== false;
+            const columns = COLS.map(col => {
+              const items = shown.filter(i => i.col === col.key).map(i => this.cardVM(i));
+              const isOver = this.state.dragOverCol === def.key + "|" + col.key;
+              return {
+                key: col.key, items,
+                dropBg: isOver ? "color-mix(in srgb,var(--accent) 12%,transparent)" : "transparent",
+                onOver: (e) => { e.preventDefault(); const k = def.key + "|" + col.key; if (this.state.dragOverCol !== k) this.setState({ dragOverCol: k }); },
+                onDrop: (e) => { e.preventDefault(); this.moveTo(def.key, col.key); }
+              };
+            });
+            out.push({
+              key: def.key, short: def.short, title: def.title, color: def.color, icon: this.ic(def.icon),
+              prio: def.prio == null ? "" : String(def.prio), prioLabel: def.prio == null ? "" : PLABEL[def.prio], hasPrio: def.prio != null,
+              done, total, pct: pct + "%", open, columns,
+              caret: open ? "rotate(90deg)" : "rotate(0deg)",
+              toggle: () => this.setState({ laneOpen: {...this.state.laneOpen, [def.key]: !open} })
+            });
+          });
+          return out;
+        }
+
+        buildEpicRows(){
+          return EPICS.map(e => {
+            const mine = this.state.issues.filter(i => i.ep === e.id);
+            const total = mine.length;
+            const done = mine.filter(i => i.col === "closed").length;
+            const wip = mine.filter(i => i.col === "inprog").length;
+            const ready = mine.filter(i => i.col === "ready").length;
+            const blocked = mine.filter(i => i.col === "blocked").length;
+            const open = !!this.state.epicOpen[e.id];
+            return {
+              short: e.short, title: e.title, color: e.color, icon: this.ic(e.icon),
+              prio: String(e.prio), prioLabel: PLABEL[e.prio], st: e.st, stLabel: STLABEL[e.st],
+              done, total, nReady: ready, nInprog: wip, nBlocked: blocked,
+              pctDone: (total ? done/total*100 : 0) + "%", pctWip: (total ? wip/total*100 : 0) + "%",
+              open, caret: open ? "rotate(90deg)" : "rotate(0deg)",
+              toggle: () => this.setState({ epicOpen: {...this.state.epicOpen, [e.id]: !open} }),
+              children: mine.map(i => this.cardVM(i))
+            };
+          });
+        }
+
+        selVM(){
+          const i = this.issueById(this.state.selected); if (!i) return null;
+          const ep = i.ep ? this.epicById(i.ep) : null;
+          const relColor = { blocks:"var(--c-blocked)", "parent-child":"var(--accent)", related:"var(--text-dim)" };
+          return {
+            id: i.id, title: i.title, type: i.type, typeIcon: this.ic(ICON[i.type]),
+            prio: String(i.prio), prioLabel: PLABEL[i.prio], st: i.col, stLabel: STLABEL[i.col],
+            desc: i.desc || "\u2014", ac: i.ac || "", hasAc: !!i.ac,
+            hasEpic: !!ep, epicTitle: ep ? ep.title : "", epicColor: ep ? ep.color : "", epicIcon: ep ? this.ic(ep.icon) : "",
+            gotoEpic: () => this.setState({ view: "epics", selected: null, epicOpen: ep ? {...this.state.epicOpen, [ep.id]: true} : this.state.epicOpen }),
+            hasAssignee: !!i.assignee, assignee: i.assignee || "", initials: i.assignee ? i.assignee.split(" ").map(w=>w[0]).slice(0,2).join("") : "",
+            hasClose: !!i.closeReason, closeReason: i.closeReason || "",
+            created: i.created, updated: i.updated, reporter: i.reporter, dependents: i.dependents || 0,
+            hasDeps: i.deps.length > 0,
+            deps: i.deps.map(d => { const t = this.issueById(d.id); return {
+              rel: d.rel, color: relColor[d.rel] || "var(--text-dim)", short: this.short(d.id),
+              title: t ? t.title : d.id, onOpen: () => this.setState({ selected: d.id }) }; })
+          };
+        }
+
+        renderVals(){
+          const s = this.state;
+          const counts = this.laneCounts();
+          const nav = (k, label) => ({
+            label, icon: this.ic(NAV_ICON[k]), active: String(s.view === k),
+            bg: s.view === k ? "rgba(255,255,255,.12)" : "transparent",
+            fg: s.view === k ? "#fff" : "#a8a8a8",
+            bar: s.view === k ? "var(--accent)" : "transparent",
+            go: () => this.setState({ view: k })
+          });
+          const tab = (k, label) => ({
+            label, fw: s.view === k ? "600" : "500",
+            bg: s.view === k ? "var(--accent)" : "transparent",
+            fg: s.view === k ? "var(--accent-fg)" : "var(--text-dim)",
+            go: () => this.setState({ view: k })
+          });
+          const prioChip = (p) => {
+            const on = s.prio[p];
+            return { label: PLABEL[p], title: (on?"Hide ":"Show ")+PLABEL[p],
+              color: on ? "var("+PVAR[p]+")" : "var(--text-dim)",
+              border: on ? "var("+PVAR[p]+")" : "var(--border)",
+              bg: on ? "color-mix(in srgb,var("+PVAR[p]+") 15%,transparent)" : "transparent",
+              toggle: () => this.setState({ prio: {...s.prio, [p]: !on} }) };
+          };
+
+          return {
+            theme: s.theme, dir: s.dir, project: PROJECT,
+            issueCount: s.issues.length,
+            themeIcon: s.theme === "dark" ? this.ic(SUN) : this.ic(MOON),
+            toggleTheme: () => this.setState({ theme: s.theme === "dark" ? "light" : "dark" }),
+            navItems: [nav("board","Board"), nav("epics","Epics"), nav("issues","Issues")],
+            tabs: [tab("board","Board"), tab("epics","Epics"), tab("issues","Issues")],
+            prioChips: [prioChip(0), prioChip(1), prioChip(2), prioChip(3)],
+            search: s.search, onSearch: (e) => this.setState({ search: e.target.value }),
+            hideClosed: s.hideClosed,
+            hideClosedLabel: s.hideClosed ? "Show closed" : "Hide closed",
+            hideClosedBg: s.hideClosed ? "var(--accent)" : "transparent",
+            hideClosedFg: s.hideClosed ? "var(--accent-fg)" : "var(--text-dim)",
+            toggleHideClosed: () => this.setState({ hideClosed: !s.hideClosed }),
+            isBoard: s.view === "board", isEpics: s.view === "epics", isIssues: s.view === "issues",
+            colHeaders: COLS.map(c => ({ label: c.label, color: c.color, count: counts[c.key] })),
+            lanes: this.buildLanes(),
+            epicRows: this.buildEpicRows(),
+            issueRows: s.issues.filter(i => this.passes(i)).map(i => this.cardVM(i)),
+            hasSelected: !!s.selected, sel: this.selVM(),
+            closeDetail: () => this.setState({ selected: null })
+          };
+        }
+      }
+    </script>
+  </body>
+</html>
