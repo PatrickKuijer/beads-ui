@@ -1447,7 +1447,7 @@ input.inline-edit:focus {
 .board-card__title {
   font-size: 12.5px;
   line-height: 1.4;
-  margin: var(--space-3) 0;
+  margin: var(--space-3) 0 9px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -1471,13 +1471,16 @@ input.inline-edit:focus {
   border-radius: 999px;
   background: currentColor;
 }
-.board-card__status--open {
+.board-card__status--blocked {
   color: var(--c-blocked);
 }
-.board-card__status--in_progress {
+.board-card__status--ready {
+  color: var(--c-ready);
+}
+.board-card__status--inprogress {
   color: var(--c-inprog);
 }
-.board-card__status--in_progress .board-card__status-dot {
+.board-card__status--inprogress .board-card__status-dot {
   animation: board-status-pulse 1.6s ease-in-out infinite;
 }
 .board-card__status--closed {

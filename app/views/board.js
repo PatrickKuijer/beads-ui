@@ -4,7 +4,6 @@ import { cmpClosedDesc, cmpPriorityThenCreated } from '../data/sort.js';
 import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 import { debug } from '../utils/logging.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
-import { statusLabel } from '../utils/status.js';
 import { showToast } from '../utils/toast.js';
 import { createTypeBadge } from '../utils/type-badge.js';
 
@@ -49,6 +48,14 @@ const COLUMNS = [
   },
   { key: 'closed', title: 'Closed', colorVar: '--c-closed', status: 'closed' }
 ];
+
+/** Status-pill label per board column (mirrors column placement, not raw issue status). */
+const COLUMN_STATUS_LABEL = {
+  blocked: 'Blocked',
+  ready: 'Ready',
+  inprogress: 'In progress',
+  closed: 'Closed'
+};
 
 /** Deterministic accent palette for epic lane tiles/progress. */
 const EPIC_COLORS = [
@@ -382,17 +389,17 @@ export function createBoardView(
         role="list"
         aria-label="${col.title} — ${lane_label}"
       >
-        ${items.map((it) => cardTemplate(it))}
+        ${items.map((it) => cardTemplate(it, col))}
       </div>
     `;
   }
 
   /**
    * @param {IssueLite} it
+   * @param {{ key: 'blocked'|'ready'|'inprogress'|'closed' }} col
    */
-  function cardTemplate(it) {
+  function cardTemplate(it, col) {
     const p = typeof it.priority === 'number' ? it.priority : 2;
-    const status = String(it.status || 'open');
     const dep_count =
       Number(it.dependent_count || 0) + Number(it.dependency_count || 0);
     return html`
@@ -417,9 +424,9 @@ export function createBoardView(
           ${it.title || '(no title)'}
         </div>
         <div class="board-card__row2">
-          <span class="board-card__status board-card__status--${status}">
+          <span class="board-card__status board-card__status--${col.key}">
             <span class="board-card__status-dot"></span>
-            ${statusLabel(status)}
+            ${COLUMN_STATUS_LABEL[col.key]}
           </span>
           <span class="board-card__spacer"></span>
           ${dep_count > 0
