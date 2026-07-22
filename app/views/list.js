@@ -97,7 +97,7 @@ export function createListView(
     requestRender: doRender,
     getSelectedId: () => selected_id,
     row_class: 'issue-row',
-    columns: ['type', 'id', 'title', 'epic', 'priority', 'status']
+    columns: ['type', 'id', 'title', 'epic', 'priority', 'status', 'deps']
   });
 
   /**
@@ -293,7 +293,7 @@ export function createListView(
                 class="table"
                 role="grid"
                 aria-rowcount=${String(filtered.length)}
-                aria-colcount="6"
+                aria-colcount="7"
               >
                 <colgroup>
                   <col style="width: 34px" />
@@ -302,6 +302,7 @@ export function createListView(
                   <col style="width: 150px" />
                   <col style="width: 58px" />
                   <col style="width: 128px" />
+                  <col style="width: 72px" />
                 </colgroup>
                 <thead>
                   <tr role="row">
@@ -313,6 +314,7 @@ export function createListView(
                     <th role="columnheader">Epic</th>
                     <th role="columnheader">Prio</th>
                     <th role="columnheader">Status</th>
+                    <th role="columnheader">Deps</th>
                   </tr>
                 </thead>
                 <tbody role="rowgroup">
