@@ -76,5 +76,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/mantoni/beads-ui.git"
+  },
+  "overrides": {
+    "parse5": "^7.3.0"
   }
 }
