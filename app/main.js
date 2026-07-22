@@ -19,7 +19,10 @@ import { createIssueDialog } from './views/issue-dialog.js';
 import { createListView } from './views/list.js';
 import { createTopNav } from './views/nav.js';
 import { createNewIssueDialog } from './views/new-issue-dialog.js';
-import { createWorkspacePicker } from './views/workspace-picker.js';
+import {
+  createWorkspacePicker,
+  getProjectName
+} from './views/workspace-picker.js';
 import { createWsClient } from './ws.js';
 
 /**
@@ -259,18 +262,6 @@ export function bootstrap(root_element) {
     }
 
     /**
-     * Extract project name from path.
-     *
-     * @param {string} path
-     * @returns {string}
-     */
-    function getProjectName(path) {
-      if (!path) return 'Unknown';
-      const parts = path.split('/').filter(Boolean);
-      return parts.length > 0 ? parts[parts.length - 1] : 'Unknown';
-    }
-
-    /**
      * Load available workspaces from server and update state.
      */
     async function loadWorkspaces() {
@@ -328,6 +319,14 @@ export function bootstrap(root_element) {
         // Clear and resubscribe
         void clearAndResubscribe();
       }
+    });
+
+    // Handle workspaces-updated events: the global registry file changed on
+    // disk (e.g. another bd instance started/stopped), so refresh the
+    // available list without touching the current workspace/subscriptions.
+    client.on('workspaces-updated', () => {
+      log('workspaces-updated event: refreshing workspace list');
+      void loadWorkspaces();
     });
 
     // --- End workspace management (mounting happens after store is created) ---
