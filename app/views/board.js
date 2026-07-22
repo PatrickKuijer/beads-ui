@@ -24,7 +24,7 @@ import { createTypeIcon } from '../utils/type-icon.js';
  */
 
 /**
- * @typedef {{ id: string, title?: string, status?: string, total_children?: number, closed_children?: number }} EpicLite
+ * @typedef {{ id: string, title?: string, status?: string, priority?: number, total_children?: number, closed_children?: number }} EpicLite
  */
 
 /**
@@ -346,7 +346,7 @@ export function createBoardView(
           <span
             class="board-lane__tile"
             style="background: color-mix(in srgb, ${color} 20%, transparent); color: ${color}"
-            >${lane.key ? '' : '—'}</span
+            >${lane.key ? createTypeIcon('epic') : '—'}</span
           >
           ${lane.key
             ? html`<span class="board-lane__id mono" style="color: ${color}"
@@ -354,6 +354,9 @@ export function createBoardView(
               >`
             : ''}
           <span class="board-lane__title text-truncate">${title}</span>
+          ${lane.key
+            ? createPriorityBadge(lane.epic?.priority)
+            : ''}
           <span class="board-lane__spacer"></span>
           <span class="board-lane__progress-track">
             <span
