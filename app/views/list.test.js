@@ -99,7 +99,8 @@ describe('views/list', () => {
         title: 'One',
         status: 'open',
         priority: 1,
-        issue_type: 'task'
+        issue_type: 'task',
+        epic_id: 'UI-epic1'
       },
       {
         id: 'UI-2',
@@ -131,9 +132,15 @@ describe('views/list', () => {
     const rows = mount.querySelectorAll('tr.issue-row');
     expect(rows.length).toBe(2);
 
-    // badge present
-    const badges = mount.querySelectorAll('.type-badge');
-    expect(badges.length).toBeGreaterThanOrEqual(2);
+    // type icon present
+    const icons = mount.querySelectorAll('.type-icon');
+    expect(icons.length).toBeGreaterThanOrEqual(2);
+
+    // Epic column shows the epic id when present, an em dash otherwise
+    const first_row = /** @type {HTMLElement} */ (rows[0]);
+    const second_row = /** @type {HTMLElement} */ (rows[1]);
+    expect(first_row.textContent || '').toContain('UI-epic1');
+    expect(second_row.textContent || '').toContain('—');
 
     const first = /** @type {HTMLElement} */ (rows[0]);
     first.dispatchEvent(new MouseEvent('click', { bubbles: true }));

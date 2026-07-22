@@ -10,7 +10,7 @@ import { createIssueRowRenderer } from './issue-row.js';
 // List view implementation; requires a transport send function.
 
 /**
- * @typedef {{ id: string, title?: string, status?: 'closed'|'open'|'in_progress', priority?: number, issue_type?: string, assignee?: string, labels?: string[] }} Issue
+ * @typedef {{ id: string, title?: string, status?: 'closed'|'open'|'in_progress', priority?: number, issue_type?: string, assignee?: string, epic_id?: string | null, labels?: string[] }} Issue
  */
 
 /**
@@ -96,7 +96,8 @@ export function createListView(
     onUpdate: updateInline,
     requestRender: doRender,
     getSelectedId: () => selected_id,
-    row_class: 'issue-row'
+    row_class: 'issue-row',
+    columns: ['type', 'id', 'title', 'epic', 'priority', 'status']
   });
 
   /**
@@ -295,23 +296,23 @@ export function createListView(
                 aria-colcount="6"
               >
                 <colgroup>
-                  <col style="width: 100px" />
-                  <col style="width: 120px" />
+                  <col style="width: 34px" />
+                  <col style="width: 108px" />
                   <col />
-                  <col style="width: 120px" />
-                  <col style="width: 160px" />
-                  <col style="width: 130px" />
-                  <col style="width: 80px" />
+                  <col style="width: 150px" />
+                  <col style="width: 58px" />
+                  <col style="width: 128px" />
                 </colgroup>
                 <thead>
                   <tr role="row">
+                    <th role="columnheader">
+                      <span class="sr-only">Type</span>
+                    </th>
                     <th role="columnheader">ID</th>
-                    <th role="columnheader">Type</th>
                     <th role="columnheader">Title</th>
+                    <th role="columnheader">Epic</th>
+                    <th role="columnheader">Prio</th>
                     <th role="columnheader">Status</th>
-                    <th role="columnheader">Assignee</th>
-                    <th role="columnheader">Priority</th>
-                    <th role="columnheader">Deps</th>
                   </tr>
                 </thead>
                 <tbody role="rowgroup">
