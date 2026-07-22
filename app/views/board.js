@@ -5,7 +5,7 @@ import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 import { debug } from '../utils/logging.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
 import { showToast } from '../utils/toast.js';
-import { createTypeBadge } from '../utils/type-badge.js';
+import { createTypeIcon } from '../utils/type-icon.js';
 
 /**
  * @typedef {{
@@ -415,7 +415,7 @@ export function createBoardView(
         @dragend=${onDragEnd}
       >
         <div class="board-card__row1">
-          ${createTypeBadge(it.issue_type)}
+          ${createTypeIcon(it.issue_type)}
           ${createIssueIdRenderer(it.id, { class_name: 'mono board-card__id' })}
           <span class="board-card__spacer"></span>
           ${createPriorityBadge(it.priority)}

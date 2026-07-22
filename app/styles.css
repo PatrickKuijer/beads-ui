@@ -28,7 +28,7 @@
     Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 
   /* Badges: base + derived via color-mix */
-  --badge-radius: 999px;
+  --badge-radius: 6px;
 
   /* Status base colors */
   --status-open-base: var(--c-ready); /* open */
