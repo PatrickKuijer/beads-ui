@@ -58,6 +58,10 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 <!-- END BEADS INTEGRATION -->
 
 
+## Project Git Policy (overrides Conservative profile above)
+
+On closing a bead (`bd close <id>`), commit the resulting changes with a Conventional Commits message (`feat:`, `fix:`, `chore:`, etc., semver-relevant type). Do NOT push — commit only.
+
 ## Build & Test
 
 _Add your build and test commands here_
