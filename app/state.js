@@ -8,7 +8,7 @@ import { debug } from './utils/logging.js';
  */
 
 /**
- * @typedef {{ status: StatusFilter, search: string, type: string }} Filters
+ * @typedef {{ status: StatusFilter, search: string, type: string, prio: number[], hideClosed: boolean }} Filters
  */
 
 /**
@@ -57,7 +57,11 @@ export function createStore(initial = {}) {
       status: initial.filters?.status ?? 'all',
       search: initial.filters?.search ?? '',
       type:
-        typeof initial.filters?.type === 'string' ? initial.filters?.type : ''
+        typeof initial.filters?.type === 'string' ? initial.filters?.type : '',
+      prio: Array.isArray(initial.filters?.prio)
+        ? initial.filters.prio
+        : [0, 1, 2, 3],
+      hideClosed: initial.filters?.hideClosed === true
     },
     board: {
       closed_filter:
@@ -123,6 +127,9 @@ export function createStore(initial = {}) {
         next.filters.status === state.filters.status &&
         next.filters.search === state.filters.search &&
         next.filters.type === state.filters.type &&
+        JSON.stringify(next.filters.prio) ===
+          JSON.stringify(state.filters.prio) &&
+        next.filters.hideClosed === state.filters.hideClosed &&
         next.board.closed_filter === state.board.closed_filter &&
         !workspace_changed
       ) {

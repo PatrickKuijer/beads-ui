@@ -16,9 +16,11 @@ import { createDetailView } from './views/detail.js';
 import { createEpicsView } from './views/epics.js';
 import { createFatalErrorDialog } from './views/fatal-error-dialog.js';
 import { createIssueDialog } from './views/issue-dialog.js';
+import { createHeaderControls } from './views/header-controls.js';
 import { createListView } from './views/list.js';
 import { createTopNav } from './views/nav.js';
 import { createNewIssueDialog } from './views/new-issue-dialog.js';
+import { createSidebar } from './views/sidebar.js';
 import {
   createWorkspacePicker,
   getProjectName
@@ -349,8 +351,14 @@ export function bootstrap(root_element) {
       client.onConnection(onConn);
     }
     // Load persisted filters (status/search/type) from localStorage
-    /** @type {{ status: 'all'|'open'|'in_progress'|'closed'|'ready', search: string, type: string }} */
-    let persisted_filters = { status: 'all', search: '', type: '' };
+    /** @type {{ status: 'all'|'open'|'in_progress'|'closed'|'ready', search: string, type: string, prio: number[], hideClosed: boolean }} */
+    let persisted_filters = {
+      status: 'all',
+      search: '',
+      type: '',
+      prio: [0, 1, 2, 3],
+      hideClosed: false
+    };
     try {
       const raw = window.localStorage.getItem('beads-ui.filters');
       if (raw) {
@@ -378,7 +386,11 @@ export function bootstrap(root_element) {
               ? obj.status
               : 'all',
             search: typeof obj.search === 'string' ? obj.search : '',
-            type: parsed_type
+            type: parsed_type,
+            prio: Array.isArray(obj.prio)
+              ? obj.prio.filter((/** @type {unknown} */ p) => typeof p === 'number')
+              : [0, 1, 2, 3],
+            hideClosed: obj.hideClosed === true
           };
         }
       }
@@ -439,6 +451,31 @@ export function bootstrap(root_element) {
     // Top navigation (optional mount)
     if (nav_mount) {
       createTopNav(nav_mount, store, router);
+    }
+
+    // Activity sidebar: view switcher + theme toggle
+    const sidebar_mount = document.getElementById('sidebar');
+    if (sidebar_mount) {
+      createSidebar(sidebar_mount, store, router, {
+        getTheme: () =>
+          document.documentElement.getAttribute('data-theme') === 'dark'
+            ? 'dark'
+            : 'light',
+        setTheme: (mode) => {
+          document.documentElement.setAttribute('data-theme', mode);
+          try {
+            window.localStorage.setItem('beads-ui.theme', mode);
+          } catch {
+            // ignore storage errors
+          }
+        }
+      });
+    }
+
+    // Header controls: global search, priority chips, hide-closed toggle
+    const header_controls_mount = document.getElementById('header-controls');
+    if (header_controls_mount) {
+      createHeaderControls(header_controls_mount, store);
     }
 
     // Workspace picker (mount now that store exists)
@@ -504,7 +541,9 @@ export function bootstrap(root_element) {
       const data = {
         status: s.filters.status,
         search: s.filters.search,
-        type: typeof s.filters.type === 'string' ? s.filters.type : ''
+        type: typeof s.filters.type === 'string' ? s.filters.type : '',
+        prio: Array.isArray(s.filters.prio) ? s.filters.prio : [0, 1, 2, 3],
+        hideClosed: s.filters.hideClosed === true
       };
       window.localStorage.setItem('beads-ui.filters', JSON.stringify(data));
     });
@@ -1024,26 +1063,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
             ? 'dark'
             : 'light';
       document.documentElement.setAttribute('data-theme', initial);
-      const sw = /** @type {HTMLInputElement|null} */ (
-        document.getElementById('theme-switch')
-      );
-      if (sw) {
-        sw.checked = initial === 'dark';
-      }
     } catch {
       // ignore theme init errors
-    }
-
-    // Wire up theme switch in header
-    const themeSwitch = /** @type {HTMLInputElement|null} */ (
-      document.getElementById('theme-switch')
-    );
-    if (themeSwitch) {
-      themeSwitch.addEventListener('change', () => {
-        const mode = themeSwitch.checked ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', mode);
-        window.localStorage.setItem('beads-ui.theme', mode);
-      });
     }
 
     /** @type {HTMLElement|null} */
