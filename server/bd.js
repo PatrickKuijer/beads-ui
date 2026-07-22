@@ -89,7 +89,13 @@ function runBdUnlocked(args, options = {}) {
   const spawn_opts = {
     cwd: options.cwd || process.cwd(),
     env: env_with_db,
-    shell: false,
+    // On Windows, `bd` is typically installed as an npm shim (`bd.cmd`/`bd.ps1`),
+    // not a native `.exe`. `child_process.spawn` cannot execute `.cmd`/`.bat`
+    // files without a shell (it throws ENOENT for the extension-less shim and
+    // EINVAL if `.cmd` is passed directly with shell:false). Use the shell on
+    // Windows so the OS/npm shim resolution works; keep shell:false elsewhere
+    // to avoid unnecessary shell interpretation of args.
+    shell: process.platform === 'win32',
     windowsHide: true
   };
 
