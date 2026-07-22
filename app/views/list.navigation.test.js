@@ -205,10 +205,10 @@ describe('views/list navigation', () => {
     );
     await view.load();
 
-    // Focus Status select (4th column) in first row
+    // Focus Status select (6th column: type, id, title, epic, priority, status) in first row
     const status_select = /** @type {HTMLSelectElement} */ (
       mount.querySelector(
-        'tbody tr.issue-row:nth-child(1) td:nth-child(4) select'
+        'tbody tr.issue-row:nth-child(1) td:nth-child(6) select'
       )
     );
     status_select.focus();
@@ -256,9 +256,10 @@ describe('views/list navigation', () => {
     );
     await view.load();
 
+    // ID button is 2nd column (type, id, title, epic, priority, status)
     const id_btn_row1 = /** @type {HTMLButtonElement} */ (
       mount.querySelector(
-        'tbody tr.issue-row:nth-child(1) td:nth-child(1) button'
+        'tbody tr.issue-row:nth-child(1) td:nth-child(2) button'
       )
     );
     id_btn_row1.focus();
@@ -268,7 +269,7 @@ describe('views/list navigation', () => {
 
     const id_btn_row2 = /** @type {HTMLButtonElement} */ (
       mount.querySelector(
-        'tbody tr.issue-row:nth-child(2) td:nth-child(1) button'
+        'tbody tr.issue-row:nth-child(2) td:nth-child(2) button'
       )
     );
     expect(document.activeElement).toBe(id_btn_row2);
