@@ -163,7 +163,9 @@ export function createIssueRowRenderer(options) {
         return html`<td role="gridcell">${createTypeIcon(it.issue_type)}</td>`;
       case 'title':
         return html`<td role="gridcell">
-          ${editableText(it.id, 'title', it.title || '')}
+          <span class="text-truncate ${it.title ? '' : 'muted'}"
+            >${it.title || ''}</span
+          >
         </td>`;
       case 'epic':
         return html`<td role="gridcell" class="mono muted">
