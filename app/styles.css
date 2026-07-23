@@ -1418,6 +1418,12 @@ input.inline-edit:focus {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding-right: var(--space-6);
+  border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.board-column__header:last-child {
+  border-right: none;
+  padding-right: 0;
 }
 .board-column__title {
   display: inline-flex;
@@ -1438,7 +1444,13 @@ input.inline-edit:focus {
   background: color-mix(in srgb, var(--panel-bg) 88%, var(--muted));
   color: color-mix(in srgb, var(--muted) 82%, #000);
   border-color: color-mix(in srgb, var(--muted) 28%, transparent);
-  min-width: 28px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  font-weight: 600;
+  min-width: 0;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 20px;
   text-align: center;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
@@ -1557,8 +1569,14 @@ input.inline-edit:focus {
   flex-direction: column;
   gap: var(--card-gap, 11px);
   min-height: 52px;
+  padding-right: var(--space-6);
+  border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   border-radius: 10px;
   transition: background 120ms ease;
+}
+.board-lane__cell:last-child {
+  border-right: none;
+  padding-right: 0;
 }
 .board-lane__cell--drag-over {
   background: color-mix(in srgb, var(--link) 12%, transparent);

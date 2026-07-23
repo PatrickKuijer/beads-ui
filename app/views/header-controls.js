@@ -11,8 +11,8 @@ const PRIORITIES = [
 
 /**
  * Create the header's global controls: id/title search, priority chips,
- * and a hide/show-closed toggle. Applies to the Issues list; Board and
- * Epics views are unaffected for now.
+ * and a hide/show-closed toggle. Search applies to the Issues list and
+ * the Board; priority chips and hide-closed are Issues-list only for now.
  *
  * @param {HTMLElement} mount_element
  * @param {{ getState: () => any, setState: (patch: any) => void, subscribe: (fn: (s: any) => void) => () => void }} store

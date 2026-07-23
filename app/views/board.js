@@ -148,6 +148,39 @@ export function createBoardView(
   }
 
   /**
+   * Current id/title search text from the shared header search box.
+   *
+   * @returns {string}
+   */
+  function searchText() {
+    if (!store) {
+      return '';
+    }
+    try {
+      const s = store.getState();
+      return String(s?.filters?.search || '').toLowerCase();
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * @param {IssueLite[]} items
+   * @returns {IssueLite[]}
+   */
+  function applySearchFilter(items) {
+    const needle = searchText();
+    if (!needle) {
+      return items;
+    }
+    return items.filter((it) => {
+      const a = String(it.id).toLowerCase();
+      const b = String(it.title || '').toLowerCase();
+      return a.includes(needle) || b.includes(needle);
+    });
+  }
+
+  /**
    * Build swimlanes by grouping the four column lists by `epic_id`.
    * Lanes are sorted by epic title (case-insensitive); the "No epic" lane
    * always sorts last. Only lanes with at least one visible card are shown.
@@ -196,7 +229,7 @@ export function createBoardView(
      * @param {'blocked'|'ready'|'inprogress'|'closed'} col
      */
     function place(items, col) {
-      for (const it of items) {
+      for (const it of applySearchFilter(items)) {
         // Epics are represented by their swimlane header, not as cards.
         if (it.issue_type === 'epic' || epic_by_id.has(it.id)) {
           continue;
@@ -294,15 +327,15 @@ export function createBoardView(
    */
   function columnItems(col_key) {
     if (col_key === 'blocked') {
-      return list_blocked;
+      return applySearchFilter(list_blocked);
     }
     if (col_key === 'ready') {
-      return list_ready;
+      return applySearchFilter(list_ready);
     }
     if (col_key === 'inprogress') {
-      return list_in_progress;
+      return applySearchFilter(list_in_progress);
     }
-    return list_closed;
+    return applySearchFilter(list_closed);
   }
 
   /**
@@ -919,6 +952,18 @@ export function createBoardView(
         refreshFromStores();
       } catch {
         // ignore
+      }
+    });
+  }
+
+  // Re-render when the shared header search text changes.
+  if (store && typeof store.subscribe === 'function') {
+    let last_search = searchText();
+    store.subscribe(() => {
+      const next_search = searchText();
+      if (next_search !== last_search) {
+        last_search = next_search;
+        doRender();
       }
     });
   }
