@@ -1178,7 +1178,8 @@ html[data-theme='dark'] {
   background: color-mix(in srgb, var(--link) 10%, transparent);
 }
 
-.filter-dropdown__option input[type='checkbox'] {
+.filter-dropdown__option input[type='checkbox'],
+.filter-dropdown__option input[type='radio'] {
   margin: 0;
 }
 
@@ -1201,6 +1202,18 @@ input.inline-edit:focus {
 
 #list-panel .panel__header input[type='search'] {
   flex: 1;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--badge-radius);
+  color: var(--fg);
+  line-height: 1.4;
+}
+
+#list-panel .panel__header input[type='search']:focus {
+  outline: 2px solid color-mix(in srgb, var(--link) 50%, transparent);
+  outline-offset: var(--outline-offset-m);
 }
 
 /* Issues list polish */

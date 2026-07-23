@@ -1,6 +1,6 @@
 import { html, render } from 'lit-html';
 import { createListSelectors } from '../data/list-selectors.js';
-import { cmpClosedDesc } from '../data/sort.js';
+import { cmpClosedDesc, cmpPriorityThenCreated } from '../data/sort.js';
 import { ISSUE_TYPES, typeLabel } from '../utils/issue-type.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { debug } from '../utils/logging.js';
@@ -10,8 +10,33 @@ import { createIssueRowRenderer } from './issue-row.js';
 // List view implementation; requires a transport send function.
 
 /**
- * @typedef {{ id: string, title?: string, status?: 'closed'|'open'|'in_progress', priority?: number, issue_type?: string, assignee?: string, epic_id?: string | null, labels?: string[] }} Issue
+ * @typedef {{ id: string, title?: string, status?: 'closed'|'open'|'in_progress', priority?: number, issue_type?: string, assignee?: string, epic_id?: string | null, labels?: string[], created_at?: number, updated_at?: number }} Issue
  */
+
+/** @type {Array<{ value: string, label: string }>} */
+const SORT_OPTIONS = [
+  { value: 'priority', label: 'Priority' },
+  { value: 'created', label: 'Created' },
+  { value: 'updated', label: 'Updated' },
+  { value: 'id', label: 'ID' }
+];
+
+/**
+ * @param {string} field
+ * @returns {(a: Issue, b: Issue) => number}
+ */
+function sortComparatorFor(field) {
+  if (field === 'created') {
+    return (a, b) => (b.created_at ?? 0) - (a.created_at ?? 0);
+  }
+  if (field === 'updated') {
+    return (a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0);
+  }
+  if (field === 'id') {
+    return (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  }
+  return cmpPriorityThenCreated;
+}
 
 /**
  * Create the Issues List view.
@@ -58,12 +83,15 @@ export function createListView(
   let prio_filters = [0, 1, 2, 3];
   /** @type {boolean} */
   let hide_closed = false;
+  /** @type {string} */
+  let sort_field = 'priority';
   /** @type {string | null} */
   let selected_id = store ? store.getState().selected_id : null;
   /** @type {null | (() => void)} */
   let unsubscribe = null;
   let status_dropdown_open = false;
   let type_dropdown_open = false;
+  let sort_dropdown_open = false;
 
   /**
    * Normalize legacy string filter to array format.
@@ -165,6 +193,7 @@ export function createListView(
     e.stopPropagation();
     status_dropdown_open = !status_dropdown_open;
     type_dropdown_open = false;
+    sort_dropdown_open = false;
     doRender();
   };
 
@@ -177,6 +206,35 @@ export function createListView(
     e.stopPropagation();
     type_dropdown_open = !type_dropdown_open;
     status_dropdown_open = false;
+    sort_dropdown_open = false;
+    doRender();
+  };
+
+  /**
+   * Toggle sort dropdown open/closed.
+   *
+   * @param {Event} e
+   */
+  const toggleSortDropdown = (e) => {
+    e.stopPropagation();
+    sort_dropdown_open = !sort_dropdown_open;
+    status_dropdown_open = false;
+    type_dropdown_open = false;
+    doRender();
+  };
+
+  /**
+   * Set the active sort field.
+   *
+   * @param {string} field
+   */
+  const setSortField = (field) => {
+    sort_field = field;
+    sort_dropdown_open = false;
+    log('sort field -> %s', sort_field);
+    if (store) {
+      store.setState({ filters: { sort: sort_field } });
+    }
     doRender();
   };
 
@@ -205,6 +263,7 @@ export function createListView(
         ? s.filters.prio
         : [0, 1, 2, 3];
       hide_closed = s.filters.hideClosed === true;
+      sort_field = s.filters.sort || 'priority';
     }
   }
   // Initial values are reflected via bound `.value` in the template
@@ -245,6 +304,8 @@ export function createListView(
     // Sorting: closed list is a special case → sort by closed_at desc only
     if (status_filters.length === 1 && status_filters[0] === 'closed') {
       filtered = filtered.slice().sort(cmpClosedDesc);
+    } else {
+      filtered = filtered.slice().sort(sortComparatorFor(sort_field));
     }
 
     return html`
@@ -287,6 +348,28 @@ export function createListView(
                     @change=${() => toggleTypeFilter(t)}
                   />
                   ${typeLabel(t)}
+                </label>
+              `
+            )}
+          </div>
+        </div>
+        <div class="filter-dropdown ${sort_dropdown_open ? 'is-open' : ''}">
+          <button class="filter-dropdown__trigger" @click=${toggleSortDropdown}>
+            Sort: ${SORT_OPTIONS.find((o) => o.value === sort_field)?.label ||
+            'Priority'}
+            <span class="filter-dropdown__arrow">▾</span>
+          </button>
+          <div class="filter-dropdown__menu">
+            ${SORT_OPTIONS.map(
+              (o) => html`
+                <label class="filter-dropdown__option">
+                  <input
+                    type="radio"
+                    name="sort-field"
+                    .checked=${sort_field === o.value}
+                    @change=${() => setSortField(o.value)}
+                  />
+                  ${o.label}
                 </label>
               `
             )}
@@ -530,9 +613,10 @@ export function createListView(
   const clickOutsideHandler = (e) => {
     const target = /** @type {HTMLElement|null} */ (e.target);
     if (target && !target.closest('.filter-dropdown')) {
-      if (status_dropdown_open || type_dropdown_open) {
+      if (status_dropdown_open || type_dropdown_open || sort_dropdown_open) {
         status_dropdown_open = false;
         type_dropdown_open = false;
+        sort_dropdown_open = false;
         doRender();
       }
     }
@@ -582,6 +666,11 @@ export function createListView(
         const next_hide_closed = s.filters.hideClosed === true;
         if (next_hide_closed !== hide_closed) {
           hide_closed = next_hide_closed;
+          needs_render = true;
+        }
+        const next_sort = s.filters.sort || 'priority';
+        if (next_sort !== sort_field) {
+          sort_field = next_sort;
           needs_render = true;
         }
         if (needs_render) {
