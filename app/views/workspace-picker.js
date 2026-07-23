@@ -7,14 +7,15 @@ import { debug } from '../utils/logging.js';
 
 /**
  * Extract the project name from a workspace path. Returns just the directory
- * name (e.g., 'myproject' from '/home/user/code/myproject').
+ * name (e.g., 'myproject' from '/home/user/code/myproject' or
+ * 'C:\Users\me\myproject').
  *
  * @param {string} workspace_path
  * @returns {string}
  */
-function getProjectName(workspace_path) {
+export function getProjectName(workspace_path) {
   if (!workspace_path) return 'Unknown';
-  const parts = workspace_path.split('/').filter(Boolean);
+  const parts = workspace_path.split(/[/\\]/).filter(Boolean);
   return parts.length > 0 ? parts[parts.length - 1] : 'Unknown';
 }
 

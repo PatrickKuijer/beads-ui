@@ -45,7 +45,7 @@ const db_watcher = watchDb(config.root_dir, () => {
   // v2: all updates flow via subscription push envelopes only
 });
 
-const { scheduleListRefresh } = attachWsServer(server, {
+const { scheduleListRefresh, broadcast } = attachWsServer(server, {
   path: '/ws',
   heartbeat_ms: 30000,
   // Coalesce DB change bursts into one refresh run
@@ -59,9 +59,10 @@ const { scheduleListRefresh } = attachWsServer(server, {
 watchRegistry(
   (entries) => {
     log('registry changed: %d entries', entries.length);
-    // Find if there's a newer workspace that matches our initial root
-    // For now, we just log the change - users can switch via set-workspace
-    // Future: could auto-switch if a workspace was started in a parent/child dir
+    // Notify connected clients so their workspace picker re-fetches the
+    // available list. Future: could auto-switch if a workspace was started
+    // in a parent/child dir.
+    broadcast('workspaces-updated');
   },
   { debounce_ms: 500 }
 );

@@ -3,10 +3,21 @@ import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 import { emojiForPriority } from '../utils/priority-badge.js';
 import { priority_levels } from '../utils/priority.js';
 import { statusLabel } from '../utils/status.js';
-import { createTypeBadge } from '../utils/type-badge.js';
+import { createTypeIcon } from '../utils/type-icon.js';
+
+/** Default column set/order (legacy table shape used by the Epics view). */
+const DEFAULT_COLUMNS = [
+  'id',
+  'type',
+  'title',
+  'status',
+  'assignee',
+  'priority',
+  'deps'
+];
 
 /**
- * @typedef {{ id: string, title?: string, status?: string, priority?: number, issue_type?: string, assignee?: string, dependency_count?: number, dependent_count?: number }} IssueRowData
+ * @typedef {{ id: string, title?: string, status?: string, priority?: number, issue_type?: string, assignee?: string, epic_id?: string | null, dependency_count?: number, dependent_count?: number }} IssueRowData
  */
 
 /**
@@ -18,7 +29,8 @@ import { createTypeBadge } from '../utils/type-badge.js';
  *   onUpdate: (id: string, patch: { title?: string, assignee?: string, status?: 'open'|'in_progress'|'closed', priority?: number }) => Promise<void>,
  *   requestRender: () => void,
  *   getSelectedId?: () => string | null,
- *   row_class?: string
+ *   row_class?: string,
+ *   columns?: Array<'id'|'type'|'title'|'epic'|'status'|'assignee'|'priority'|'deps'>
  * }} options
  * @returns {(it: IssueRowData) => import('lit-html').TemplateResult<1>}
  */
@@ -28,6 +40,7 @@ export function createIssueRowRenderer(options) {
   const request_render = options.requestRender;
   const get_selected_id = options.getSelectedId || (() => null);
   const row_class = options.row_class || 'issue-row';
+  const columns = options.columns || DEFAULT_COLUMNS;
 
   /** @type {Set<string>} */
   const editing = new Set();
@@ -136,10 +149,98 @@ export function createIssueRowRenderer(options) {
 
   /**
    * @param {IssueRowData} it
+   * @param {string} key
    */
-  function rowTemplate(it) {
+  function cellTemplate(it, key) {
     const cur_status = String(it.status || 'open');
     const cur_prio = String(it.priority ?? 2);
+    switch (key) {
+      case 'id':
+        return html`<td role="gridcell" class="mono">
+          ${createIssueIdRenderer(it.id)}
+        </td>`;
+      case 'type':
+        return html`<td role="gridcell">${createTypeIcon(it.issue_type)}</td>`;
+      case 'title':
+        return html`<td role="gridcell">
+          ${editableText(it.id, 'title', it.title || '')}
+        </td>`;
+      case 'epic':
+        return html`<td role="gridcell" class="mono muted">
+          ${it.epic_id || '—'}
+        </td>`;
+      case 'status':
+        return html`<td role="gridcell">
+          <select
+            class="badge-select badge--status is-${cur_status}"
+            .value=${cur_status}
+            @change=${makeSelectChange(it.id, 'status')}
+          >
+            ${['open', 'in_progress', 'closed'].map(
+              (s) =>
+                html`<option value=${s} ?selected=${cur_status === s}>
+                  ${statusLabel(s)}
+                </option>`
+            )}
+          </select>
+        </td>`;
+      case 'assignee':
+        return html`<td role="gridcell">
+          ${editableText(it.id, 'assignee', it.assignee || '', 'Unassigned')}
+        </td>`;
+      case 'priority':
+        return html`<td role="gridcell">
+          <select
+            class="badge-select badge--priority ${'is-p' + cur_prio}"
+            .value=${cur_prio}
+            @change=${makeSelectChange(it.id, 'priority')}
+          >
+            ${priority_levels.map(
+              (p, i) =>
+                html`<option
+                  value=${String(i)}
+                  ?selected=${cur_prio === String(i)}
+                >
+                  ${emojiForPriority(i)} ${p}
+                </option>`
+            )}
+          </select>
+        </td>`;
+      case 'deps':
+        return html`<td role="gridcell" class="deps-col">
+          ${(it.dependency_count || 0) > 0 || (it.dependent_count || 0) > 0
+            ? html`<span class="deps-indicator"
+                >${(it.dependency_count || 0) > 0
+                  ? html`<span
+                      class="dep-count"
+                      title="${it.dependency_count} ${(it.dependency_count ||
+                        0) === 1
+                        ? 'dependency'
+                        : 'dependencies'}"
+                      >→${it.dependency_count}</span
+                    >`
+                  : ''}${(it.dependent_count || 0) > 0
+                  ? html`<span
+                      class="dependent-count"
+                      title="${it.dependent_count} ${(it.dependent_count ||
+                        0) === 1
+                        ? 'dependent'
+                        : 'dependents'}"
+                      >←${it.dependent_count}</span
+                    >`
+                  : ''}</span
+              >`
+            : ''}
+        </td>`;
+      default:
+        return html``;
+    }
+  }
+
+  /**
+   * @param {IssueRowData} it
+   */
+  function rowTemplate(it) {
     const is_selected = get_selected_id() === it.id;
     return html`<tr
       role="row"
@@ -147,68 +248,7 @@ export function createIssueRowRenderer(options) {
       data-issue-id=${it.id}
       @click=${makeRowClick(it.id)}
     >
-      <td role="gridcell" class="mono">${createIssueIdRenderer(it.id)}</td>
-      <td role="gridcell">${createTypeBadge(it.issue_type)}</td>
-      <td role="gridcell">${editableText(it.id, 'title', it.title || '')}</td>
-      <td role="gridcell">
-        <select
-          class="badge-select badge--status is-${cur_status}"
-          .value=${cur_status}
-          @change=${makeSelectChange(it.id, 'status')}
-        >
-          ${['open', 'in_progress', 'closed'].map(
-            (s) =>
-              html`<option value=${s} ?selected=${cur_status === s}>
-                ${statusLabel(s)}
-              </option>`
-          )}
-        </select>
-      </td>
-      <td role="gridcell">
-        ${editableText(it.id, 'assignee', it.assignee || '', 'Unassigned')}
-      </td>
-      <td role="gridcell">
-        <select
-          class="badge-select badge--priority ${'is-p' + cur_prio}"
-          .value=${cur_prio}
-          @change=${makeSelectChange(it.id, 'priority')}
-        >
-          ${priority_levels.map(
-            (p, i) =>
-              html`<option
-                value=${String(i)}
-                ?selected=${cur_prio === String(i)}
-              >
-                ${emojiForPriority(i)} ${p}
-              </option>`
-          )}
-        </select>
-      </td>
-      <td role="gridcell" class="deps-col">
-        ${(it.dependency_count || 0) > 0 || (it.dependent_count || 0) > 0
-          ? html`<span class="deps-indicator"
-              >${(it.dependency_count || 0) > 0
-                ? html`<span
-                    class="dep-count"
-                    title="${it.dependency_count} ${(it.dependency_count ||
-                      0) === 1
-                      ? 'dependency'
-                      : 'dependencies'}"
-                    >→${it.dependency_count}</span
-                  >`
-                : ''}${(it.dependent_count || 0) > 0
-                ? html`<span
-                    class="dependent-count"
-                    title="${it.dependent_count} ${(it.dependent_count || 0) ===
-                    1
-                      ? 'dependent'
-                      : 'dependents'}"
-                    >←${it.dependent_count}</span
-                  >`
-                : ''}</span
-            >`
-          : ''}
-      </td>
+      ${columns.map((key) => cellTemplate(it, key))}
     </tr>`;
   }
 

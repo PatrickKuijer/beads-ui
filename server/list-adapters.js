@@ -92,9 +92,15 @@ export function normalizeIssueList(value) {
       const n = parseTimestamp(closed_raw);
       closed_at = Number.isFinite(n) ? n : null;
     }
+    // `bd list`/`bd ready`/`bd blocked` expose the parent-child link via a
+    // top-level `parent` string field, not `epic_id` - the client-side
+    // Issue shape expects `epic_id`, so derive it here for every consumer.
+    const parent = /** @type {any} */ (it).parent;
+    const epic_id = typeof parent === 'string' && parent.length > 0 ? parent : null;
     out.push({
       ...it,
       id,
+      epic_id,
       created_at: Number.isFinite(created_at) ? created_at : 0,
       updated_at: Number.isFinite(updated_at) ? updated_at : 0,
       closed_at

@@ -4,9 +4,8 @@ import { cmpClosedDesc, cmpPriorityThenCreated } from '../data/sort.js';
 import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 import { debug } from '../utils/logging.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
-import { statusLabel } from '../utils/status.js';
 import { showToast } from '../utils/toast.js';
-import { createTypeBadge } from '../utils/type-badge.js';
+import { createTypeIcon } from '../utils/type-icon.js';
 
 /**
  * @typedef {{
@@ -25,7 +24,7 @@ import { createTypeBadge } from '../utils/type-badge.js';
  */
 
 /**
- * @typedef {{ id: string, title?: string, status?: string, total_children?: number, closed_children?: number }} EpicLite
+ * @typedef {{ id: string, title?: string, status?: string, priority?: number, total_children?: number, closed_children?: number }} EpicLite
  */
 
 /**
@@ -49,6 +48,14 @@ const COLUMNS = [
   },
   { key: 'closed', title: 'Closed', colorVar: '--c-closed', status: 'closed' }
 ];
+
+/** Status-pill label per board column (mirrors column placement, not raw issue status). */
+const COLUMN_STATUS_LABEL = {
+  blocked: 'Blocked',
+  ready: 'Ready',
+  inprogress: 'In progress',
+  closed: 'Closed'
+};
 
 /** Deterministic accent palette for epic lane tiles/progress. */
 const EPIC_COLORS = [
@@ -339,7 +346,7 @@ export function createBoardView(
           <span
             class="board-lane__tile"
             style="background: color-mix(in srgb, ${color} 20%, transparent); color: ${color}"
-            >${lane.key ? '' : '—'}</span
+            >${lane.key ? createTypeIcon('epic') : '—'}</span
           >
           ${lane.key
             ? html`<span class="board-lane__id mono" style="color: ${color}"
@@ -347,6 +354,9 @@ export function createBoardView(
               >`
             : ''}
           <span class="board-lane__title text-truncate">${title}</span>
+          ${lane.key
+            ? createPriorityBadge(lane.epic?.priority)
+            : ''}
           <span class="board-lane__spacer"></span>
           <span class="board-lane__progress-track">
             <span
@@ -382,17 +392,17 @@ export function createBoardView(
         role="list"
         aria-label="${col.title} — ${lane_label}"
       >
-        ${items.map((it) => cardTemplate(it))}
+        ${items.map((it) => cardTemplate(it, col))}
       </div>
     `;
   }
 
   /**
    * @param {IssueLite} it
+   * @param {{ key: 'blocked'|'ready'|'inprogress'|'closed' }} col
    */
-  function cardTemplate(it) {
+  function cardTemplate(it, col) {
     const p = typeof it.priority === 'number' ? it.priority : 2;
-    const status = String(it.status || 'open');
     const dep_count =
       Number(it.dependent_count || 0) + Number(it.dependency_count || 0);
     return html`
@@ -408,7 +418,7 @@ export function createBoardView(
         @dragend=${onDragEnd}
       >
         <div class="board-card__row1">
-          ${createTypeBadge(it.issue_type)}
+          ${createTypeIcon(it.issue_type)}
           ${createIssueIdRenderer(it.id, { class_name: 'mono board-card__id' })}
           <span class="board-card__spacer"></span>
           ${createPriorityBadge(it.priority)}
@@ -417,9 +427,9 @@ export function createBoardView(
           ${it.title || '(no title)'}
         </div>
         <div class="board-card__row2">
-          <span class="board-card__status board-card__status--${status}">
+          <span class="board-card__status board-card__status--${col.key}">
             <span class="board-card__status-dot"></span>
-            ${statusLabel(status)}
+            ${COLUMN_STATUS_LABEL[col.key]}
           </span>
           <span class="board-card__spacer"></span>
           ${dep_count > 0

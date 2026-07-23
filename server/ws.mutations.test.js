@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { runBd, runBdJson } from './bd.js';
 import { handleMessage } from './ws.js';
@@ -345,6 +346,7 @@ describe('ws mutation handlers', () => {
     const mJson = /** @type {import('vitest').Mock} */ (runBdJson);
 
     // Set the active workspace first.
+    const workspace_path = path.resolve(path.sep, 'tmp', 'bdui-ws-test-fixture');
     const ws_setup = makeStubSocket();
     await handleMessage(
       /** @type {any} */ (ws_setup),
@@ -352,7 +354,7 @@ describe('ws mutation handlers', () => {
         JSON.stringify({
           id: 'sw',
           type: 'set-workspace',
-          payload: { path: '/tmp/bdui-ws-test-fixture' }
+          payload: { path: workspace_path }
         })
       )
     );
@@ -375,7 +377,7 @@ describe('ws mutation handlers', () => {
 
     expect(mRun).toHaveBeenCalledWith(
       ['update', 'UI-7', '--status', 'in_progress'],
-      expect.objectContaining({ cwd: '/tmp/bdui-ws-test-fixture' })
+      expect.objectContaining({ cwd: workspace_path })
     );
   });
 });

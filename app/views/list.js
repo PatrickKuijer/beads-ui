@@ -10,7 +10,7 @@ import { createIssueRowRenderer } from './issue-row.js';
 // List view implementation; requires a transport send function.
 
 /**
- * @typedef {{ id: string, title?: string, status?: 'closed'|'open'|'in_progress', priority?: number, issue_type?: string, assignee?: string, labels?: string[] }} Issue
+ * @typedef {{ id: string, title?: string, status?: 'closed'|'open'|'in_progress', priority?: number, issue_type?: string, assignee?: string, epic_id?: string | null, labels?: string[] }} Issue
  */
 
 /**
@@ -54,6 +54,10 @@ export function createListView(
   let issues_cache = [];
   /** @type {string[]} */
   let type_filters = [];
+  /** @type {number[]} */
+  let prio_filters = [0, 1, 2, 3];
+  /** @type {boolean} */
+  let hide_closed = false;
   /** @type {string | null} */
   let selected_id = store ? store.getState().selected_id : null;
   /** @type {null | (() => void)} */
@@ -96,7 +100,8 @@ export function createListView(
     onUpdate: updateInline,
     requestRender: doRender,
     getSelectedId: () => selected_id,
-    row_class: 'issue-row'
+    row_class: 'issue-row',
+    columns: ['type', 'id', 'title', 'epic', 'priority', 'status', 'deps']
   });
 
   /**
@@ -196,6 +201,10 @@ export function createListView(
       status_filters = normalizeStatusFilter(s.filters.status);
       search_text = s.filters.search || '';
       type_filters = normalizeTypeFilter(s.filters.type);
+      prio_filters = Array.isArray(s.filters.prio)
+        ? s.filters.prio
+        : [0, 1, 2, 3];
+      hide_closed = s.filters.hideClosed === true;
     }
   }
   // Initial values are reflected via bound `.value` in the template
@@ -224,6 +233,14 @@ export function createListView(
       filtered = filtered.filter((it) =>
         type_filters.includes(String(it.issue_type || ''))
       );
+    }
+    if (prio_filters.length < 4) {
+      filtered = filtered.filter((it) =>
+        prio_filters.includes(Number(it.priority))
+      );
+    }
+    if (hide_closed) {
+      filtered = filtered.filter((it) => String(it.status || '') !== 'closed');
     }
     // Sorting: closed list is a special case → sort by closed_at desc only
     if (status_filters.length === 1 && status_filters[0] === 'closed') {
@@ -292,25 +309,27 @@ export function createListView(
                 class="table"
                 role="grid"
                 aria-rowcount=${String(filtered.length)}
-                aria-colcount="6"
+                aria-colcount="7"
               >
                 <colgroup>
-                  <col style="width: 100px" />
-                  <col style="width: 120px" />
+                  <col style="width: 34px" />
+                  <col style="width: 108px" />
                   <col />
-                  <col style="width: 120px" />
-                  <col style="width: 160px" />
-                  <col style="width: 130px" />
-                  <col style="width: 80px" />
+                  <col style="width: 150px" />
+                  <col style="width: 58px" />
+                  <col style="width: 128px" />
+                  <col style="width: 72px" />
                 </colgroup>
                 <thead>
                   <tr role="row">
+                    <th role="columnheader">
+                      <span class="sr-only">Type</span>
+                    </th>
                     <th role="columnheader">ID</th>
-                    <th role="columnheader">Type</th>
                     <th role="columnheader">Title</th>
+                    <th role="columnheader">Epic</th>
+                    <th role="columnheader">Prio</th>
                     <th role="columnheader">Status</th>
-                    <th role="columnheader">Assignee</th>
-                    <th role="columnheader">Priority</th>
                     <th role="columnheader">Deps</th>
                   </tr>
                 </thead>
@@ -549,6 +568,20 @@ export function createListView(
           JSON.stringify(next_type_arr) !== JSON.stringify(type_filters);
         if (type_changed) {
           type_filters = next_type_arr;
+          needs_render = true;
+        }
+        const next_prio = Array.isArray(s.filters.prio)
+          ? s.filters.prio
+          : [0, 1, 2, 3];
+        const prio_changed =
+          JSON.stringify(next_prio) !== JSON.stringify(prio_filters);
+        if (prio_changed) {
+          prio_filters = next_prio;
+          needs_render = true;
+        }
+        const next_hide_closed = s.filters.hideClosed === true;
+        if (next_hide_closed !== hide_closed) {
+          hide_closed = next_hide_closed;
           needs_render = true;
         }
         if (needs_render) {

@@ -34,14 +34,16 @@ afterEach(() => {
 
 describe('resolveDbPath', () => {
   test('uses explicit_db when provided', () => {
-    const res = resolveDbPath({ cwd: '/x', explicit_db: './my.db', env: {} });
-    expect(res.path.endsWith('/x/my.db')).toBe(true);
+    const cwd = mkdtemp();
+    const res = resolveDbPath({ cwd, explicit_db: './my.db', env: {} });
+    expect(res.path).toBe(path.join(cwd, 'my.db'));
     expect(res.source).toBe('flag');
   });
 
   test('uses BEADS_DB from env when set', () => {
-    const res = resolveDbPath({ cwd: '/x', env: { BEADS_DB: '/abs/env.db' } });
-    expect(res.path).toBe('/abs/env.db');
+    const env_db = path.resolve(path.sep, 'abs', 'env.db');
+    const res = resolveDbPath({ cwd: mkdtemp(), env: { BEADS_DB: env_db } });
+    expect(res.path).toBe(env_db);
     expect(res.source).toBe('env');
   });
 

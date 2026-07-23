@@ -156,6 +156,22 @@ describe('list adapters for subscription types', () => {
     }
   });
 
+  test('derives epic_id from bd list/ready/blocked top-level `parent` field', async () => {
+    /** @type {import('vitest').Mock} */ (runBdJson).mockResolvedValue({
+      code: 0,
+      stdoutJson: [
+        { id: 'R-1', updated_at: '2024-01-01T00:00:00.000Z', parent: 'EPIC-1' },
+        { id: 'R-2', updated_at: '2024-01-01T00:00:00.000Z' }
+      ]
+    });
+    const res = await fetchListForSubscription({ type: 'ready-issues' });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.items[0]).toMatchObject({ id: 'R-1', epic_id: 'EPIC-1' });
+      expect(res.items[1]).toMatchObject({ id: 'R-2', epic_id: null });
+    }
+  });
+
   test('fetchListForSubscription surfaces bd error', async () => {
     /** @type {import('vitest').Mock} */ (runBdJson).mockResolvedValue({
       code: 2,
