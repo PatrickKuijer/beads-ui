@@ -349,11 +349,34 @@ export function createBoardView(
             >${lane.key ? createTypeIcon('epic') : '—'}</span
           >
           ${lane.key
-            ? html`<span class="board-lane__id mono" style="color: ${color}"
+            ? html`<span
+                class="board-lane__id mono board-lane__id--link"
+                style="color: ${color}"
+                role="button"
+                tabindex="0"
+                title="Open epic ${lane.key}"
+                @click=${(/** @type {MouseEvent} */ ev) =>
+                  onLaneIdClick(ev, lane.key)}
+                @keydown=${(/** @type {KeyboardEvent} */ ev) =>
+                  onLaneIdKeydown(ev, lane.key)}
                 >${lane.key}</span
               >`
             : ''}
-          <span class="board-lane__title text-truncate">${title}</span>
+          ${lane.key
+            ? html`<span
+                class="board-lane__title board-lane__title--link text-truncate"
+                role="button"
+                tabindex="0"
+                title="Open epic ${lane.key}"
+                @click=${(/** @type {MouseEvent} */ ev) =>
+                  onLaneIdClick(ev, lane.key)}
+                @keydown=${(/** @type {KeyboardEvent} */ ev) =>
+                  onLaneIdKeydown(ev, lane.key)}
+                >${title}</span
+              >`
+            : html`<span class="board-lane__title text-truncate"
+                >${title}</span
+              >`}
           ${lane.key
             ? createPriorityBadge(lane.epic?.priority)
             : ''}
@@ -442,6 +465,29 @@ export function createBoardView(
         </div>
       </article>
     `;
+  }
+
+  /**
+   * Open the epic's detail view without also toggling lane collapse.
+   *
+   * @param {MouseEvent} ev
+   * @param {string} epic_id
+   */
+  function onLaneIdClick(ev, epic_id) {
+    ev.stopPropagation();
+    gotoIssue(epic_id);
+  }
+
+  /**
+   * @param {KeyboardEvent} ev
+   * @param {string} epic_id
+   */
+  function onLaneIdKeydown(ev, epic_id) {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      ev.stopPropagation();
+      gotoIssue(epic_id);
+    }
   }
 
   /**

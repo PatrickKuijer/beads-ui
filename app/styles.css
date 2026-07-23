@@ -1509,6 +1509,20 @@ input.inline-edit:focus {
   font-size: 13px;
   max-width: 44%;
 }
+.board-lane__id--link,
+.board-lane__title--link {
+  cursor: pointer;
+  border-radius: 4px;
+}
+.board-lane__id--link:hover,
+.board-lane__title--link:hover {
+  text-decoration: underline;
+}
+.board-lane__id--link:focus-visible,
+.board-lane__title--link:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 2px;
+}
 .board-lane__spacer {
   flex: 1;
 }
