@@ -197,6 +197,10 @@ export function createBoardView(
      */
     function place(items, col) {
       for (const it of items) {
+        // Epics are represented by their swimlane header, not as cards.
+        if (it.issue_type === 'epic' || epic_by_id.has(it.id)) {
+          continue;
+        }
         const lane_key = typeof it.epic_id === 'string' ? it.epic_id : '';
         ensureLane(lane_key)[col].push(it);
       }
