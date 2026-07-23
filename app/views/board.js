@@ -181,6 +181,35 @@ export function createBoardView(
   }
 
   /**
+   * Current priority filter from the shared header prio chips.
+   *
+   * @returns {number[]}
+   */
+  function prioFilter() {
+    if (!store) {
+      return [0, 1, 2, 3];
+    }
+    try {
+      const s = store.getState();
+      return Array.isArray(s?.filters?.prio) ? s.filters.prio : [0, 1, 2, 3];
+    } catch {
+      return [0, 1, 2, 3];
+    }
+  }
+
+  /**
+   * @param {IssueLite[]} items
+   * @returns {IssueLite[]}
+   */
+  function applyPrioFilter(items) {
+    const prio = prioFilter();
+    if (prio.length >= 4) {
+      return items;
+    }
+    return items.filter((it) => prio.includes(Number(it.priority)));
+  }
+
+  /**
    * Build swimlanes by grouping the four column lists by `epic_id`.
    * Lanes are sorted by epic title (case-insensitive); the "No epic" lane
    * always sorts last. Only lanes with at least one visible card are shown.
@@ -229,7 +258,7 @@ export function createBoardView(
      * @param {'blocked'|'ready'|'inprogress'|'closed'} col
      */
     function place(items, col) {
-      for (const it of applySearchFilter(items)) {
+      for (const it of applyPrioFilter(applySearchFilter(items))) {
         // Epics are represented by their swimlane header, not as cards.
         if (it.issue_type === 'epic' || epic_by_id.has(it.id)) {
           continue;
@@ -327,15 +356,15 @@ export function createBoardView(
    */
   function columnItems(col_key) {
     if (col_key === 'blocked') {
-      return applySearchFilter(list_blocked);
+      return applyPrioFilter(applySearchFilter(list_blocked));
     }
     if (col_key === 'ready') {
-      return applySearchFilter(list_ready);
+      return applyPrioFilter(applySearchFilter(list_ready));
     }
     if (col_key === 'inprogress') {
-      return applySearchFilter(list_in_progress);
+      return applyPrioFilter(applySearchFilter(list_in_progress));
     }
-    return applySearchFilter(list_closed);
+    return applyPrioFilter(applySearchFilter(list_closed));
   }
 
   /**
@@ -956,13 +985,16 @@ export function createBoardView(
     });
   }
 
-  // Re-render when the shared header search text changes.
+  // Re-render when the shared header search text or prio filter changes.
   if (store && typeof store.subscribe === 'function') {
     let last_search = searchText();
+    let last_prio = JSON.stringify(prioFilter());
     store.subscribe(() => {
       const next_search = searchText();
-      if (next_search !== last_search) {
+      const next_prio = JSON.stringify(prioFilter());
+      if (next_search !== last_search || next_prio !== last_prio) {
         last_search = next_search;
+        last_prio = next_prio;
         doRender();
       }
     });
