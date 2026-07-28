@@ -141,7 +141,7 @@ export function createDetailView(
       <div class="delete-confirm">
         <h2 class="delete-confirm__title">Delete Issue</h2>
         <p class="delete-confirm__message">
-          Are you sure you want to delete issue <strong>${issueId}</strong> — <strong>${issueTitle}</strong>? This action cannot be undone.
+          Are you sure you want to delete issue <strong id="delete-confirm-id"></strong> — <strong id="delete-confirm-title"></strong>? This action cannot be undone.
         </p>
         <div class="delete-confirm__actions">
           <button type="button" class="btn" id="delete-cancel-btn">Cancel</button>
@@ -149,6 +149,10 @@ export function createDetailView(
         </div>
       </div>
     `;
+    const idEl = dialog.querySelector('#delete-confirm-id');
+    const titleEl = dialog.querySelector('#delete-confirm-title');
+    if (idEl) idEl.textContent = issueId;
+    if (titleEl) titleEl.textContent = issueTitle;
     const cancelBtn = dialog.querySelector('#delete-cancel-btn');
     const confirmBtn = dialog.querySelector('#delete-confirm-btn');
 

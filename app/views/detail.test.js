@@ -546,9 +546,52 @@ describe('views/detail', () => {
 
       // Should show issue ID and title
       const message = dialog?.querySelector('.delete-confirm__message');
-      expect(message?.innerHTML).toContain('<strong>UI-100</strong>');
-      expect(message?.innerHTML).toContain(
-        '<strong>Confirm delete test</strong>'
+      expect(message?.querySelector('#delete-confirm-id')?.textContent).toBe(
+        'UI-100'
+      );
+      expect(message?.querySelector('#delete-confirm-title')?.textContent).toBe(
+        'Confirm delete test'
+      );
+    });
+
+    test('delete dialog escapes HTML in issue id/title (XSS)', async () => {
+      document.body.innerHTML =
+        '<section class="panel"><div id="mount"></div></section>';
+      const mount = /** @type {HTMLElement} */ (
+        document.getElementById('mount')
+      );
+      const issue = {
+        id: '<img src=x onerror=alert(1)>',
+        title: '<script>alert(2)</script>',
+        dependencies: [],
+        dependents: []
+      };
+      const stores = {
+        /** @param {string} id */
+        snapshotFor(id) {
+          return id === `detail:${issue.id}` ? [issue] : [];
+        },
+        subscribe() {
+          return () => {};
+        }
+      };
+      const view = createDetailView(mount, async () => ({}), undefined, stores);
+      await view.load(issue.id);
+
+      const deleteBtn = /** @type {HTMLButtonElement} */ (
+        mount.querySelector('.delete-issue-btn')
+      );
+      deleteBtn.click();
+
+      const dialog = document.getElementById('delete-confirm-dialog');
+      const message = dialog?.querySelector('.delete-confirm__message');
+      expect(message?.querySelector('img')).toBeNull();
+      expect(message?.querySelector('script')).toBeNull();
+      expect(message?.querySelector('#delete-confirm-id')?.textContent).toBe(
+        issue.id
+      );
+      expect(message?.querySelector('#delete-confirm-title')?.textContent).toBe(
+        issue.title
       );
     });
 
