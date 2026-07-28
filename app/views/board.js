@@ -148,6 +148,34 @@ export function createBoardView(
   }
 
   /**
+   * Current hide-closed toggle from the shared header control. When true,
+   * the Closed column is hidden from the board layout entirely.
+   *
+   * @returns {boolean}
+   */
+  function hideClosed() {
+    if (!store) {
+      return false;
+    }
+    try {
+      const s = store.getState();
+      return s?.filters?.hideClosed === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Columns to render, excluding Closed when the header's hide-closed
+   * toggle is active.
+   *
+   * @returns {typeof COLUMNS}
+   */
+  function visibleColumns() {
+    return hideClosed() ? COLUMNS.filter((c) => c.key !== 'closed') : COLUMNS;
+  }
+
+  /**
    * Current id/title search text from the shared header search box.
    *
    * @returns {string}
@@ -289,15 +317,21 @@ export function createBoardView(
 
   function template() {
     const lanes = computeLanes();
+    const cols = visibleColumns();
+    const hide_closed = hideClosed();
     return html`
-      <div class="panel__body board-root">
+      <div
+        class="panel__body board-root ${hide_closed
+          ? 'board-root--hide-closed'
+          : ''}"
+      >
         <div class="board-columns-header" role="row">
-          ${COLUMNS.map((col) => columnHeaderTemplate(col))}
+          ${cols.map((col) => columnHeaderTemplate(col))}
         </div>
         <div class="board-lanes">
           ${lanes.length === 0
             ? html`<div class="board-empty muted">No issues to show.</div>`
-            : lanes.map((lane) => laneTemplate(lane))}
+            : lanes.map((lane) => laneTemplate(lane, cols))}
         </div>
       </div>
     `;
@@ -369,8 +403,9 @@ export function createBoardView(
 
   /**
    * @param {Lane} lane
+   * @param {typeof COLUMNS} cols
    */
-  function laneTemplate(lane) {
+  function laneTemplate(lane, cols) {
     const is_open = !collapsed_lanes.has(lane.key);
     const total =
       lane.blocked.length +
@@ -443,9 +478,7 @@ export function createBoardView(
             : html`<span class="board-lane__title text-truncate"
                 >${title}</span
               >`}
-          ${lane.key
-            ? createPriorityBadge(lane.epic?.priority)
-            : ''}
+          ${lane.key ? createPriorityBadge(lane.epic?.priority) : ''}
           <span class="board-lane__spacer"></span>
           <span class="board-lane__progress-track">
             <span
@@ -459,7 +492,7 @@ export function createBoardView(
         </header>
         ${is_open
           ? html`<div class="board-lane__body">
-              ${COLUMNS.map((col) => laneCellTemplate(lane, col))}
+              ${cols.map((col) => laneCellTemplate(lane, col))}
             </div>`
           : ''}
       </section>
@@ -985,16 +1018,24 @@ export function createBoardView(
     });
   }
 
-  // Re-render when the shared header search text or prio filter changes.
+  // Re-render when the shared header search text, prio filter, or
+  // hide-closed toggle changes.
   if (store && typeof store.subscribe === 'function') {
     let last_search = searchText();
     let last_prio = JSON.stringify(prioFilter());
+    let last_hide_closed = hideClosed();
     store.subscribe(() => {
       const next_search = searchText();
       const next_prio = JSON.stringify(prioFilter());
-      if (next_search !== last_search || next_prio !== last_prio) {
+      const next_hide_closed = hideClosed();
+      if (
+        next_search !== last_search ||
+        next_prio !== last_prio ||
+        next_hide_closed !== last_hide_closed
+      ) {
         last_search = next_search;
         last_prio = next_prio;
+        last_hide_closed = next_hide_closed;
         doRender();
       }
     });

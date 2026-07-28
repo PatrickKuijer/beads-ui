@@ -730,4 +730,90 @@ describe('views/epics', () => {
     fakeStore.setState({ filters: { prio: [0, 1, 2, 3] } });
     expect(mount.querySelectorAll('.epic-group').length).toBe(2);
   });
+
+  test('header hide-closed toggle excludes closed epics from the top-level list', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+    const data = {
+      updateIssue: vi.fn(),
+      getIssue: vi.fn(async (id) => ({ id }))
+    };
+    const stores8 = new Map();
+    const listeners8 = new Set();
+    /** @param {string} id */
+    const getStore8 = (id) => {
+      let s = stores8.get(id);
+      if (!s) {
+        s = createSubscriptionIssueStore(id);
+        stores8.set(id, s);
+        s.subscribe(() => {
+          for (const fn of Array.from(listeners8)) {
+            try {
+              fn();
+            } catch {
+              /* ignore */
+            }
+          }
+        });
+      }
+      return s;
+    };
+    const issueStores8 = {
+      getStore: getStore8,
+      /** @param {string} id */
+      snapshotFor(id) {
+        return getStore8(id).snapshot().slice();
+      },
+      /** @param {() => void} fn */
+      subscribe(fn) {
+        listeners8.add(fn);
+        return () => listeners8.delete(fn);
+      }
+    };
+    const subscriptions = createSubscriptionStore(async () => {});
+    issueStores8.getStore('tab:epics').applyPush({
+      type: 'snapshot',
+      id: 'tab:epics',
+      revision: 1,
+      issues: [
+        {
+          id: 'UI-70',
+          title: 'Open Epic',
+          issue_type: 'epic',
+          status: 'open',
+          dependents: []
+        },
+        {
+          id: 'UI-71',
+          title: 'Closed Epic',
+          issue_type: 'epic',
+          status: 'closed',
+          dependents: []
+        }
+      ]
+    });
+    const fakeStore = createFakeStore({
+      search: '',
+      prio: [0, 1, 2, 3],
+      hideClosed: false
+    });
+    const view = createEpicsView(
+      mount,
+      /** @type {any} */ (data),
+      () => {},
+      /** @type {any} */ (fakeStore),
+      subscriptions,
+      /** @type {any} */ (issueStores8)
+    );
+    await view.load();
+    expect(mount.querySelectorAll('.epic-group').length).toBe(2);
+
+    fakeStore.setState({ filters: { hideClosed: true } });
+    expect(mount.querySelectorAll('.epic-group').length).toBe(1);
+    const remaining = mount.querySelector('.epic-group');
+    expect(remaining?.getAttribute('data-epic-id')).toBe('UI-70');
+
+    fakeStore.setState({ filters: { hideClosed: false } });
+    expect(mount.querySelectorAll('.epic-group').length).toBe(2);
+  });
 });

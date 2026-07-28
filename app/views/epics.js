@@ -78,8 +78,25 @@ export function createEpicsView(
   }
 
   /**
-   * Apply the shared header search/priority filters to a list of epic
-   * groups (top-level epics only; does not touch expanded children).
+   * Current hide-closed toggle from the shared header control.
+   *
+   * @returns {boolean}
+   */
+  function hideClosed() {
+    if (!store) {
+      return false;
+    }
+    try {
+      const s = store.getState();
+      return s?.filters?.hideClosed === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Apply the shared header search/priority/hide-closed filters to a list
+   * of epic groups (top-level epics only; does not touch expanded children).
    *
    * @param {any[]} list
    * @returns {any[]}
@@ -99,6 +116,11 @@ export function createEpicsView(
     if (prio.length < 4) {
       filtered = filtered.filter((g) =>
         prio.includes(Number(g.epic?.priority))
+      );
+    }
+    if (hideClosed()) {
+      filtered = filtered.filter(
+        (g) => String(g.epic?.status || '') !== 'closed'
       );
     }
     return filtered;
@@ -126,16 +148,24 @@ export function createEpicsView(
     });
   }
 
-  // Re-render when the shared header search text or prio filter changes.
+  // Re-render when the shared header search text, prio filter, or
+  // hide-closed toggle changes.
   if (store && typeof store.subscribe === 'function') {
     let last_search = searchText();
     let last_prio = JSON.stringify(prioFilter());
+    let last_hide_closed = hideClosed();
     store.subscribe(() => {
       const next_search = searchText();
       const next_prio = JSON.stringify(prioFilter());
-      if (next_search !== last_search || next_prio !== last_prio) {
+      const next_hide_closed = hideClosed();
+      if (
+        next_search !== last_search ||
+        next_prio !== last_prio ||
+        next_hide_closed !== last_hide_closed
+      ) {
         last_search = next_search;
         last_prio = next_prio;
+        last_hide_closed = next_hide_closed;
         recomputeGroups();
         doRender();
       }

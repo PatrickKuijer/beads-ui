@@ -595,6 +595,7 @@ a {
 .panel__header {
   position: sticky;
   top: 0;
+  z-index: 5;
   background: inherit;
   display: flex;
   align-items: center;
@@ -1449,6 +1450,10 @@ input.inline-edit:focus {
   display: flex;
   flex-direction: column;
   min-width: 940px;
+}
+.board-root--hide-closed .board-columns-header,
+.board-root--hide-closed .board-lane__body {
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
 }
 .board-columns-header {
   display: grid;

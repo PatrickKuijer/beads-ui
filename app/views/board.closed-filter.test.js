@@ -107,4 +107,72 @@ describe('views/board closed filter', () => {
     ).map((el) => el.textContent?.trim());
     expect(closed_ids).toEqual(['C-3', 'C-2', 'C-1']);
   });
+
+  test('header hide-closed toggle hides the Closed column entirely', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+
+    const issues = [{ id: 'C-1', title: 'closed one', closed_at: Date.now() }];
+    const issueStores = createTestIssueStores();
+    issueStores.getStore('tab:board:closed').applyPush({
+      type: 'snapshot',
+      id: 'tab:board:closed',
+      revision: 1,
+      issues
+    });
+
+    /** @type {{ state: any, subs: ((s:any)=>void)[], getState: () => any, setState: (patch:any)=>void, subscribe: (fn:(s:any)=>void)=>()=>void }} */
+    const store = {
+      state: {
+        selected_id: null,
+        view: 'board',
+        filters: { search: '', prio: [0, 1, 2, 3], hideClosed: false },
+        board: { closed_filter: 'today' }
+      },
+      subs: [],
+      getState() {
+        return this.state;
+      },
+      setState(patch) {
+        this.state = {
+          ...this.state,
+          ...(patch || {}),
+          filters: { ...this.state.filters, ...(patch.filters || {}) },
+          board: { ...this.state.board, ...(patch.board || {}) }
+        };
+        for (const fn of this.subs) {
+          fn(this.state);
+        }
+      },
+      subscribe(fn) {
+        this.subs.push(fn);
+        return () => {
+          this.subs = this.subs.filter((f) => f !== fn);
+        };
+      }
+    };
+
+    const view = createBoardView(
+      mount,
+      null,
+      () => {},
+      store,
+      undefined,
+      issueStores
+    );
+    await view.load();
+
+    // Closed column present by default
+    expect(mount.querySelector('[data-board-column="closed"]')).not.toBeNull();
+    expect(mount.querySelector('#closed-filter')).not.toBeNull();
+
+    // Toggle hide-closed on: Closed column disappears
+    store.setState({ filters: { hideClosed: true } });
+    expect(mount.querySelector('[data-board-column="closed"]')).toBeNull();
+    expect(mount.querySelector('#closed-filter')).toBeNull();
+
+    // Toggle back off: Closed column reappears
+    store.setState({ filters: { hideClosed: false } });
+    expect(mount.querySelector('[data-board-column="closed"]')).not.toBeNull();
+  });
 });
