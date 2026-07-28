@@ -816,4 +816,112 @@ describe('views/epics', () => {
     fakeStore.setState({ filters: { hideClosed: false } });
     expect(mount.querySelectorAll('.epic-group').length).toBe(2);
   });
+
+  test('header hide-closed toggle also excludes closed children within an expanded epic', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+    const data = {
+      updateIssue: vi.fn(),
+      getIssue: vi.fn(async (id) => ({ id }))
+    };
+    const stores9 = new Map();
+    const listeners9 = new Set();
+    /** @param {string} id */
+    const getStore9 = (id) => {
+      let s = stores9.get(id);
+      if (!s) {
+        s = createSubscriptionIssueStore(id);
+        stores9.set(id, s);
+        s.subscribe(() => {
+          for (const fn of Array.from(listeners9)) {
+            try {
+              fn();
+            } catch {
+              /* ignore */
+            }
+          }
+        });
+      }
+      return s;
+    };
+    const issueStores9 = {
+      getStore: getStore9,
+      /** @param {string} id */
+      snapshotFor(id) {
+        return getStore9(id).snapshot().slice();
+      },
+      /** @param {() => void} fn */
+      subscribe(fn) {
+        listeners9.add(fn);
+        return () => listeners9.delete(fn);
+      }
+    };
+    const subscriptions = createSubscriptionStore(async () => {});
+    issueStores9.getStore('tab:epics').applyPush({
+      type: 'snapshot',
+      id: 'tab:epics',
+      revision: 1,
+      issues: [
+        {
+          id: 'UI-80',
+          title: 'Epic With Closed Child',
+          issue_type: 'epic',
+          dependents: [{ id: 'UI-81' }, { id: 'UI-82' }]
+        }
+      ]
+    });
+    const fakeStore = createFakeStore({
+      search: '',
+      prio: [0, 1, 2, 3],
+      hideClosed: false
+    });
+    const view = createEpicsView(
+      mount,
+      /** @type {any} */ (data),
+      () => {},
+      /** @type {any} */ (fakeStore),
+      subscriptions,
+      /** @type {any} */ (issueStores9)
+    );
+    await view.load();
+    issueStores9.getStore('detail:UI-80');
+    issueStores9.getStore('detail:UI-80').applyPush({
+      type: 'snapshot',
+      id: 'detail:UI-80',
+      revision: 1,
+      issues: [
+        {
+          id: 'UI-80',
+          title: 'Epic With Closed Child',
+          issue_type: 'epic',
+          dependents: [
+            {
+              id: 'UI-81',
+              title: 'Open Child',
+              status: 'open',
+              priority: 1,
+              issue_type: 'task'
+            },
+            {
+              id: 'UI-82',
+              title: 'Closed Child',
+              status: 'closed',
+              priority: 2,
+              issue_type: 'task'
+            }
+          ]
+        }
+      ]
+    });
+    await view.load();
+    expect(mount.querySelectorAll('tr.epic-row').length).toBe(2);
+
+    fakeStore.setState({ filters: { hideClosed: true } });
+    const rows = mount.querySelectorAll('tr.epic-row');
+    expect(rows.length).toBe(1);
+    expect(rows[0].querySelector('.mono')?.textContent).toContain('UI-81');
+
+    fakeStore.setState({ filters: { hideClosed: false } });
+    expect(mount.querySelectorAll('tr.epic-row').length).toBe(2);
+  });
 });

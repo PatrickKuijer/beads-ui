@@ -199,8 +199,11 @@ export function createEpicsView(
     const epic = g.epic || {};
     const id = String(epic.id || '');
     const is_open = expanded.has(id);
-    // Compose children via selectors
-    const list = selectors ? selectors.selectEpicChildren(id) : [];
+    // Compose children via selectors, applying the shared hide-closed toggle
+    const raw_list = selectors ? selectors.selectEpicChildren(id) : [];
+    const list = hideClosed()
+      ? raw_list.filter((it) => String(it?.status || '') !== 'closed')
+      : raw_list;
     const is_loading = loading.has(id);
     return html`
       <div class="epic-group" data-epic-id=${id}>
