@@ -419,11 +419,12 @@ function applyClosedIssuesFilter(spec, items) {
  * Attach a WebSocket server to an existing HTTP server.
  *
  * @param {Server} http_server
- * @param {{ path?: string, heartbeat_ms?: number, refresh_debounce_ms?: number, root_dir?: string, watcher?: { rebind: (opts?: { root_dir?: string }) => void, path: string } }} [options]
+ * @param {{ path?: string, heartbeat_ms?: number, refresh_debounce_ms?: number, root_dir?: string, watcher?: { rebind: (opts?: { root_dir?: string }) => void, path: string }, allowed_origin?: string }} [options]
  * @returns {{ wss: WebSocketServer, broadcast: (type: MessageType, payload?: unknown) => void, scheduleListRefresh: () => void, setWorkspace: (root_dir: string) => { changed: boolean, workspace: { root_dir: string, db_path: string } } }}
  */
 export function attachWsServer(http_server, options = {}) {
   const ws_path = options.path || '/ws';
+  const allowed_origin = options.allowed_origin;
 
   // Initialize workspace state
   const initial_root = options.root_dir || process.cwd();
@@ -444,7 +445,21 @@ export function attachWsServer(http_server, options = {}) {
     }
   }
 
-  const wss = new WebSocketServer({ server: http_server, path: ws_path });
+  const wss = new WebSocketServer({
+    server: http_server,
+    path: ws_path,
+    // CSWSH mitigation: reject cross-origin browser connections. Browsers
+    // always send an Origin header on WebSocket upgrades; non-browser
+    // clients (CLI/native tooling) typically don't send one and are let
+    // through since they're outside the browser-driven CSWSH threat model.
+    /** @param {{ origin: string, secure: boolean, req: import('node:http').IncomingMessage }} info */
+    verifyClient(info) {
+      if (!allowed_origin || !info.origin) {
+        return true;
+      }
+      return info.origin === allowed_origin;
+    }
+  });
   CURRENT_WSS = wss;
 
   // Heartbeat: track if client answered the last ping
