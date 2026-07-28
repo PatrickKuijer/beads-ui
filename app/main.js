@@ -170,6 +170,22 @@ export function bootstrap(root_element) {
         void unsub_epics_tab().catch(() => {});
         unsub_epics_tab = null;
       }
+      if (unsub_epics_ready) {
+        void unsub_epics_ready().catch(() => {});
+        unsub_epics_ready = null;
+      }
+      if (unsub_epics_in_progress) {
+        void unsub_epics_in_progress().catch(() => {});
+        unsub_epics_in_progress = null;
+      }
+      if (unsub_epics_closed) {
+        void unsub_epics_closed().catch(() => {});
+        unsub_epics_closed = null;
+      }
+      if (unsub_epics_blocked) {
+        void unsub_epics_blocked().catch(() => {});
+        unsub_epics_blocked = null;
+      }
       if (unsub_board_ready) {
         void unsub_board_ready().catch(() => {});
         unsub_board_ready = null;
@@ -194,6 +210,10 @@ export function bootstrap(root_element) {
       const storeIds = [
         'tab:issues',
         'tab:epics',
+        'tab:epics:ready',
+        'tab:epics:in-progress',
+        'tab:epics:closed',
+        'tab:epics:blocked',
         'tab:board:ready',
         'tab:board:in-progress',
         'tab:board:closed',
@@ -695,6 +715,14 @@ export function bootstrap(root_element) {
     /** @type {null | (() => Promise<void>)} */
     let unsub_epics_tab = null;
     /** @type {null | (() => Promise<void>)} */
+    let unsub_epics_ready = null;
+    /** @type {null | (() => Promise<void>)} */
+    let unsub_epics_in_progress = null;
+    /** @type {null | (() => Promise<void>)} */
+    let unsub_epics_closed = null;
+    /** @type {null | (() => Promise<void>)} */
+    let unsub_epics_blocked = null;
+    /** @type {null | (() => Promise<void>)} */
     let unsub_board_ready = null;
     /** @type {null | (() => Promise<void>)} */
     let unsub_board_in_progress = null;
@@ -812,13 +840,147 @@ export function bootstrap(root_element) {
               pending_subscriptions.delete('tab:epics');
             });
         }
-      } else if (unsub_epics_tab) {
-        void unsub_epics_tab().catch(() => {});
-        unsub_epics_tab = null;
-        try {
-          sub_issue_stores.unregister('tab:epics');
-        } catch (err) {
-          log('unregister epics store failed: %o', err);
+        // Per-child status rollups (blocked/ready/wip/closed counts per
+        // epic_id), same source lists Board swimlanes use.
+        if (
+          !unsub_epics_ready &&
+          !pending_subscriptions.has('tab:epics:ready')
+        ) {
+          try {
+            sub_issue_stores.register('tab:epics:ready', {
+              type: 'ready-issues'
+            });
+          } catch (err) {
+            log('register epics:ready store failed: %o', err);
+          }
+          pending_subscriptions.add('tab:epics:ready');
+          void subscriptions
+            .subscribeList('tab:epics:ready', { type: 'ready-issues' })
+            .then((u) => (unsub_epics_ready = u))
+            .catch((err) => {
+              log('subscribe epics ready failed: %o', err);
+              showFatalFromError(err, 'epics (Ready)');
+            })
+            .finally(() => {
+              pending_subscriptions.delete('tab:epics:ready');
+            });
+        }
+        if (
+          !unsub_epics_in_progress &&
+          !pending_subscriptions.has('tab:epics:in-progress')
+        ) {
+          try {
+            sub_issue_stores.register('tab:epics:in-progress', {
+              type: 'in-progress-issues'
+            });
+          } catch (err) {
+            log('register epics:in-progress store failed: %o', err);
+          }
+          pending_subscriptions.add('tab:epics:in-progress');
+          void subscriptions
+            .subscribeList('tab:epics:in-progress', {
+              type: 'in-progress-issues'
+            })
+            .then((u) => (unsub_epics_in_progress = u))
+            .catch((err) => {
+              log('subscribe epics in-progress failed: %o', err);
+              showFatalFromError(err, 'epics (In Progress)');
+            })
+            .finally(() => {
+              pending_subscriptions.delete('tab:epics:in-progress');
+            });
+        }
+        if (
+          !unsub_epics_closed &&
+          !pending_subscriptions.has('tab:epics:closed')
+        ) {
+          try {
+            sub_issue_stores.register('tab:epics:closed', {
+              type: 'closed-issues'
+            });
+          } catch (err) {
+            log('register epics:closed store failed: %o', err);
+          }
+          pending_subscriptions.add('tab:epics:closed');
+          void subscriptions
+            .subscribeList('tab:epics:closed', { type: 'closed-issues' })
+            .then((u) => (unsub_epics_closed = u))
+            .catch((err) => {
+              log('subscribe epics closed failed: %o', err);
+              showFatalFromError(err, 'epics (Closed)');
+            })
+            .finally(() => {
+              pending_subscriptions.delete('tab:epics:closed');
+            });
+        }
+        if (
+          !unsub_epics_blocked &&
+          !pending_subscriptions.has('tab:epics:blocked')
+        ) {
+          try {
+            sub_issue_stores.register('tab:epics:blocked', {
+              type: 'blocked-issues'
+            });
+          } catch (err) {
+            log('register epics:blocked store failed: %o', err);
+          }
+          pending_subscriptions.add('tab:epics:blocked');
+          void subscriptions
+            .subscribeList('tab:epics:blocked', { type: 'blocked-issues' })
+            .then((u) => (unsub_epics_blocked = u))
+            .catch((err) => {
+              log('subscribe epics blocked failed: %o', err);
+              showFatalFromError(err, 'epics (Blocked)');
+            })
+            .finally(() => {
+              pending_subscriptions.delete('tab:epics:blocked');
+            });
+        }
+      } else {
+        if (unsub_epics_tab) {
+          void unsub_epics_tab().catch(() => {});
+          unsub_epics_tab = null;
+          try {
+            sub_issue_stores.unregister('tab:epics');
+          } catch (err) {
+            log('unregister epics store failed: %o', err);
+          }
+        }
+        if (unsub_epics_ready) {
+          void unsub_epics_ready().catch(() => {});
+          unsub_epics_ready = null;
+          try {
+            sub_issue_stores.unregister('tab:epics:ready');
+          } catch (err) {
+            log('unregister epics:ready store failed: %o', err);
+          }
+        }
+        if (unsub_epics_in_progress) {
+          void unsub_epics_in_progress().catch(() => {});
+          unsub_epics_in_progress = null;
+          try {
+            sub_issue_stores.unregister('tab:epics:in-progress');
+          } catch (err) {
+            log('unregister epics:in-progress store failed: %o', err);
+          }
+        }
+        if (unsub_epics_closed) {
+          void unsub_epics_closed().catch(() => {});
+          unsub_epics_closed = null;
+          try {
+            sub_issue_stores.unregister('tab:epics:closed');
+          } catch (err) {
+            log('unregister epics:closed store failed: %o', err);
+          }
+        }
+        if (unsub_epics_blocked) {
+          void unsub_epics_blocked().catch(() => {});
+          unsub_epics_blocked = null;
+          try {
+            sub_issue_stores.unregister('tab:epics:blocked');
+          } catch (err) {
+            log('unregister epics:blocked store failed: %o', err);
+          }
         }
       }
 

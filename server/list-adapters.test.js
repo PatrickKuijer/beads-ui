@@ -20,7 +20,20 @@ describe('list adapters for subscription types', () => {
 
   test('mapSubscriptionToBdArgs returns args for epics', () => {
     const args = mapSubscriptionToBdArgs({ type: 'epics' });
-    expect(args).toEqual(['epic', 'status', '--json']);
+    // `bd epic status` excludes closed epics with no way to include them;
+    // use `bd list --type=epic` across all statuses instead (--limit 0 =
+    // unlimited, without it bd list truncates at its default 50).
+    expect(args).toEqual([
+      'list',
+      '--json',
+      '--tree=false',
+      '--type',
+      'epic',
+      '--status',
+      'open,in_progress,blocked,deferred,closed',
+      '--limit',
+      '0'
+    ]);
   });
 
   test('mapSubscriptionToBdArgs returns args for blocked-issues', () => {
@@ -110,36 +123,25 @@ describe('list adapters for subscription types', () => {
     }
   });
 
-  test('filters tombstoned epics', async () => {
+  test('epics subscription returns closed epics too (bd list, not bd epic status)', async () => {
     /** @type {import('vitest').Mock} */ (runBdJson).mockResolvedValue({
       code: 0,
       stdoutJson: [
         {
-          epic: {
-            id: 'E-1',
-            status: 'open',
-            issue_type: 'epic',
-            created_at: '2024-01-01T00:00:00.000Z',
-            updated_at: '2024-01-01T00:00:00.000Z',
-            closed_at: null
-          },
-          total_children: 1,
-          closed_children: 0,
-          eligible_for_close: false
+          id: 'E-1',
+          status: 'open',
+          issue_type: 'epic',
+          created_at: '2024-01-01T00:00:00.000Z',
+          updated_at: '2024-01-01T00:00:00.000Z',
+          closed_at: null
         },
         {
-          epic: {
-            id: 'E-2',
-            status: 'tombstone',
-            issue_type: 'epic',
-            created_at: '2024-01-01T00:00:00.000Z',
-            updated_at: '2024-01-01T00:00:00.000Z',
-            closed_at: null,
-            deleted_at: '2024-02-01T00:00:00.000Z'
-          },
-          total_children: 0,
-          closed_children: 0,
-          eligible_for_close: false
+          id: 'E-2',
+          status: 'closed',
+          issue_type: 'epic',
+          created_at: '2024-01-01T00:00:00.000Z',
+          updated_at: '2024-01-01T00:00:00.000Z',
+          closed_at: '2024-01-02T00:00:00.000Z'
         }
       ]
     });
@@ -148,11 +150,9 @@ describe('list adapters for subscription types', () => {
 
     expect(res.ok).toBe(true);
     if (res.ok) {
-      expect(res.items).toHaveLength(1);
-      expect(res.items[0]).toMatchObject({
-        id: 'E-1',
-        status: 'open'
-      });
+      expect(res.items).toHaveLength(2);
+      expect(res.items.map((it) => it.id)).toEqual(['E-1', 'E-2']);
+      expect(res.items[1]).toMatchObject({ id: 'E-2', status: 'closed' });
     }
   });
 

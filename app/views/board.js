@@ -1,6 +1,7 @@
 import { html, render } from 'lit-html';
 import { createListSelectors } from '../data/list-selectors.js';
 import { cmpClosedDesc, cmpPriorityThenCreated } from '../data/sort.js';
+import { colorForEpic } from '../utils/epic-color.js';
 import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 import { debug } from '../utils/logging.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
@@ -56,32 +57,6 @@ const COLUMN_STATUS_LABEL = {
   inprogress: 'In progress',
   closed: 'Closed'
 };
-
-/** Deterministic accent palette for epic lane tiles/progress. */
-const EPIC_COLORS = [
-  '#3794ff',
-  '#c586c0',
-  '#4ec990',
-  '#e0983a',
-  '#4fc1ff',
-  '#b18aff',
-  '#e01e1e',
-  '#0f7dc4'
-];
-
-/**
- * Deterministic color for an epic id.
- *
- * @param {string} epic_id
- */
-function colorForEpic(epic_id) {
-  let hash = 0;
-  for (let i = 0; i < epic_id.length; i++) {
-    hash = (hash * 31 + epic_id.charCodeAt(i)) | 0;
-  }
-  const idx = Math.abs(hash) % EPIC_COLORS.length;
-  return EPIC_COLORS[idx];
-}
 
 /**
  * Create the Board view: epic swimlanes over Blocked / Ready / In progress / Closed.

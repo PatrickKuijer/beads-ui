@@ -1374,11 +1374,20 @@ input.inline-edit:focus {
 }
 
 /* Epics view styles */
+.epics-root {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 22px 24px 48px;
+}
 .epic-group {
   border: 1px solid var(--border);
-  border-radius: 6px;
-  margin: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 12px;
   overflow: hidden;
+  background: var(--panel-bg);
+}
+.epic-group:last-child {
+  margin-bottom: 0;
 }
 
 /* UI-83: Issues table container aligns with epics/cards */
@@ -1401,16 +1410,91 @@ input.inline-edit:focus {
   &:hover {
     background: color-mix(in srgb, var(--control-bg) 60%, transparent);
   }
-
-  /* Compact native progress for epic status */
-  progress {
-    width: 140px;
-    height: 8px;
-    accent-color: var(--status-closed-base);
-  }
+}
+.epic-header__caret {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--muted);
+  transform: rotate(0deg);
+  transition: transform 150ms ease;
+  flex: none;
+}
+.epic-header__caret.is-open {
+  transform: rotate(90deg);
+}
+.epic-header__tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  flex: none;
+}
+.epic-header__id {
+  font-size: 11px;
+  flex: none;
+}
+.epic-header__status-label {
+  font-size: 11px;
+  flex: none;
+}
+.epic-header__title {
+  font-weight: 600;
+  font-size: 14px;
+  max-width: 44%;
+}
+.epic-header__spacer {
+  flex: 1;
+}
+.epic-header__stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  width: 220px;
+  flex: none;
+}
+.epic-header__counts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.epic-count--blocked {
+  color: var(--c-blocked);
+}
+.epic-count--ready {
+  color: var(--c-ready);
+}
+.epic-count--wip {
+  color: var(--c-inprog);
+}
+.epic-header__bar {
+  position: relative;
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--panel-bg-3);
+  overflow: hidden;
+}
+.epic-header__bar-closed,
+.epic-header__bar-wip {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  transition: width 200ms ease;
+}
+.epic-header__bar-closed {
+  left: 0;
+  background: var(--c-closed);
+}
+.epic-header__bar-wip {
+  background: var(--c-inprog);
 }
 .epic-children {
-  padding: 8px 12px 12px;
+  padding: 4px 12px 8px;
 }
 .table {
   width: 100%;
@@ -1441,8 +1525,52 @@ input.inline-edit:focus {
     font-weight: 600;
   }
 }
+.epic-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  border-radius: 6px;
+  cursor: pointer;
+}
 .epic-row:hover {
   background: color-mix(in srgb, var(--control-bg) 55%, transparent);
+}
+.epic-row:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--link) 50%, transparent);
+  outline-offset: -2px;
+}
+.epic-row__status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--status-open-base);
+  flex: none;
+}
+.epic-row__status-dot.is-in_progress {
+  background: var(--status-in-progress-base);
+}
+.epic-row__status-dot.is-closed {
+  background: var(--status-closed-base);
+}
+.epic-row__id {
+  font-size: 11.5px;
+  color: var(--muted);
+  width: 74px;
+  flex: none;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.epic-row__title {
+  flex: 1;
+  font-size: 12.5px;
+  min-width: 0;
+}
+.epic-row__status {
+  font-size: 11px;
+  flex: none;
 }
 
 /* Board view styles: epic swimlanes over Blocked/Ready/In Progress/Closed */

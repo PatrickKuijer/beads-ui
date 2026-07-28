@@ -1,110 +1,138 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { createSubscriptionIssueStore } from '../data/subscription-issue-store.js';
 import { createSubscriptionStore } from '../data/subscriptions-store.js';
 import { createEpicsView } from './epics.js';
 
+/**
+ * Builds a fake issue-stores registry backed by real per-subscription
+ * stores, matching the shape epics.js expects (snapshotFor/subscribe).
+ */
+function createFakeIssueStores() {
+  const stores = new Map();
+  const listeners = new Set();
+  /** @param {string} id */
+  const getStore = (id) => {
+    let s = stores.get(id);
+    if (!s) {
+      s = createSubscriptionIssueStore(id);
+      stores.set(id, s);
+      s.subscribe(() => {
+        for (const fn of Array.from(listeners)) {
+          try {
+            fn();
+          } catch {
+            /* ignore */
+          }
+        }
+      });
+    }
+    return s;
+  };
+  return {
+    getStore,
+    /** @param {string} id */
+    snapshotFor(id) {
+      return getStore(id).snapshot().slice();
+    },
+    /** @param {() => void} fn */
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    }
+  };
+}
+
+/**
+ * @param {string} client_id
+ * @param {any} issue_stores
+ * @param {any[]} issues
+ */
+function seed(client_id, issue_stores, issues) {
+  issue_stores.getStore(client_id).applyPush({
+    type: 'snapshot',
+    id: client_id,
+    revision: 1,
+    issues
+  });
+}
+
+/**
+ * Minimal fake store mirroring the shape used by list.test.js / board.js
+ * (getState/setState/subscribe over `filters.search` and `filters.prio`).
+ *
+ * @param {any} initial_filters
+ */
+function createFakeStore(initial_filters) {
+  return {
+    state: { selected_id: null, filters: initial_filters },
+    subs: /** @type {((s:any)=>void)[]} */ ([]),
+    getState() {
+      return this.state;
+    },
+    /** @param {any} patch */
+    setState(patch) {
+      this.state = {
+        ...this.state,
+        ...(patch || {}),
+        filters: { ...this.state.filters, ...(patch.filters || {}) }
+      };
+      for (const fn of this.subs) {
+        fn(this.state);
+      }
+    },
+    /** @param {(s:any)=>void} fn */
+    subscribe(fn) {
+      this.subs.push(fn);
+      return () => {
+        this.subs = this.subs.filter((f) => f !== fn);
+      };
+    }
+  };
+}
+
 describe('views/epics', () => {
-  test('loads groups from store and expands to show non-closed children, navigates on click', async () => {
+  test('loads groups from store and expands to show children, navigates on click', async () => {
     document.body.innerHTML = '<div id="m"></div>';
     const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
-    const data = {
-      updateIssue: vi.fn(),
-      getIssue: vi.fn(async (id) => ({ id }))
-    };
-    /** test issue stores */
-    const stores = new Map();
-    const listeners = new Set();
-    /** @param {string} id */
-    const getStore = (id) => {
-      let s = stores.get(id);
-      if (!s) {
-        s = createSubscriptionIssueStore(id);
-        stores.set(id, s);
-        s.subscribe(() => {
-          for (const fn of Array.from(listeners)) {
-            try {
-              fn();
-            } catch {
-              /* ignore */
-            }
-          }
-        });
-      }
-      return s;
-    };
-    const issueStores = {
-      getStore,
-      /** @param {string} id */
-      snapshotFor(id) {
-        return getStore(id).snapshot().slice();
-      },
-      /** @param {() => void} fn */
-      subscribe(fn) {
-        listeners.add(fn);
-        return () => listeners.delete(fn);
-      }
-    };
+    const issueStores = createFakeIssueStores();
     const subscriptions = createSubscriptionStore(async () => {});
-    // Seed epics list snapshot
-    issueStores.getStore('tab:epics').applyPush({
-      type: 'snapshot',
-      id: 'tab:epics',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-1',
-          title: 'Epic One',
-          issue_type: 'epic',
-          dependents: [{ id: 'UI-2' }, { id: 'UI-3' }]
-        }
-      ]
-    });
+    seed('tab:epics', issueStores, [
+      { id: 'UI-1', title: 'Epic One', issue_type: 'epic' }
+    ]);
+    seed('tab:epics:ready', issueStores, [
+      {
+        id: 'UI-2',
+        title: 'Alpha',
+        status: 'open',
+        priority: 1,
+        issue_type: 'task',
+        epic_id: 'UI-1'
+      }
+    ]);
+    seed('tab:epics:closed', issueStores, [
+      {
+        id: 'UI-3',
+        title: 'Beta',
+        status: 'closed',
+        priority: 2,
+        issue_type: 'task',
+        epic_id: 'UI-1'
+      }
+    ]);
     /** @type {string[]} */
     const navCalls = [];
     const view = createEpicsView(
       mount,
-      /** @type {any} */ (data),
+      undefined,
       (id) => navCalls.push(id),
       undefined,
       subscriptions,
       /** @type {any} */ (issueStores)
     );
     await view.load();
-    // Register epic detail and push snapshot with dependents
-    issueStores.getStore('detail:UI-1');
-    issueStores.getStore('detail:UI-1').applyPush({
-      type: 'snapshot',
-      id: 'detail:UI-1',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-1',
-          title: 'Epic One',
-          issue_type: 'epic',
-          dependents: [
-            {
-              id: 'UI-2',
-              title: 'Alpha',
-              status: 'open',
-              priority: 1,
-              issue_type: 'task'
-            },
-            {
-              id: 'UI-3',
-              title: 'Beta',
-              status: 'closed',
-              priority: 2,
-              issue_type: 'task'
-            }
-          ]
-        }
-      ]
-    });
-    await view.load();
     const header = mount.querySelector('.epic-header');
     expect(header).not.toBeNull();
-    // After expansion, only non-closed child should be present
-    const rows = mount.querySelectorAll('tr.epic-row');
+    const rows = mount.querySelectorAll('.epic-row');
     expect(rows.length).toBe(2);
     rows[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(navCalls[0]).toBe('UI-2');
@@ -113,531 +141,156 @@ describe('views/epics', () => {
   test('sorts children by priority then created_at asc', async () => {
     document.body.innerHTML = '<div id="m"></div>';
     const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
-    const data = {
-      updateIssue: vi.fn(),
-      getIssue: vi.fn(async (id) => ({ id }))
-    };
-    const stores2 = new Map();
-    const listeners2 = new Set();
-    /** @param {string} id */
-    const getStore2 = (id) => {
-      let s = stores2.get(id);
-      if (!s) {
-        s = createSubscriptionIssueStore(id);
-        stores2.set(id, s);
-        s.subscribe(() => {
-          for (const fn of Array.from(listeners2)) {
-            try {
-              fn();
-            } catch {
-              /* ignore */
-            }
-          }
-        });
-      }
-      return s;
-    };
-    const issueStores2 = {
-      getStore: getStore2,
-      /** @param {string} id */
-      snapshotFor(id) {
-        return getStore2(id).snapshot().slice();
-      },
-      /** @param {() => void} fn */
-      subscribe(fn) {
-        listeners2.add(fn);
-        return () => listeners2.delete(fn);
-      }
-    };
+    const issueStores = createFakeIssueStores();
     const subscriptions = createSubscriptionStore(async () => {});
-    // seed epics snapshot
-    issueStores2.getStore('tab:epics').applyPush({
-      type: 'snapshot',
-      id: 'tab:epics',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-10',
-          title: 'Epic Sort',
-          issue_type: 'epic',
-          dependents: [{ id: 'UI-11' }, { id: 'UI-12' }, { id: 'UI-13' }]
-        }
-      ]
-    });
+    seed('tab:epics', issueStores, [
+      { id: 'UI-10', title: 'Epic Sort', issue_type: 'epic' }
+    ]);
+    seed('tab:epics:ready', issueStores, [
+      {
+        id: 'UI-11',
+        title: 'Low priority, newest within p1',
+        status: 'open',
+        priority: 1,
+        issue_type: 'task',
+        epic_id: 'UI-10',
+        created_at: Date.parse('2025-10-22T10:00:00.000Z')
+      },
+      {
+        id: 'UI-12',
+        title: 'Low priority, older',
+        status: 'open',
+        priority: 1,
+        issue_type: 'task',
+        epic_id: 'UI-10',
+        created_at: Date.parse('2025-10-20T10:00:00.000Z')
+      },
+      {
+        id: 'UI-13',
+        title: 'Higher priority number (lower precedence)',
+        status: 'open',
+        priority: 2,
+        issue_type: 'task',
+        epic_id: 'UI-10',
+        created_at: Date.parse('2025-10-23T10:00:00.000Z')
+      }
+    ]);
     const view = createEpicsView(
       mount,
-      /** @type {any} */ (data),
+      undefined,
       () => {},
       undefined,
       subscriptions,
-      /** @type {any} */ (issueStores2)
+      /** @type {any} */ (issueStores)
     );
     await view.load();
-    // Seed epic detail snapshot for UI-10 with out-of-order dependents
-    issueStores2.getStore('detail:UI-10');
-    issueStores2.getStore('detail:UI-10').applyPush({
-      type: 'snapshot',
-      id: 'detail:UI-10',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-10',
-          title: 'Epic Sort',
-          issue_type: 'epic',
-          dependents: [
-            {
-              id: 'UI-11',
-              title: 'Low priority, newest within p1',
-              status: 'open',
-              priority: 1,
-              issue_type: 'task',
-              created_at: '2025-10-22T10:00:00.000Z',
-              updated_at: '2025-10-22T10:00:00.000Z'
-            },
-            {
-              id: 'UI-12',
-              title: 'Low priority, older',
-              status: 'open',
-              priority: 1,
-              issue_type: 'task',
-              created_at: '2025-10-20T10:00:00.000Z',
-              updated_at: '2025-10-20T10:00:00.000Z'
-            },
-            {
-              id: 'UI-13',
-              title: 'Higher priority number (lower precedence)',
-              status: 'open',
-              priority: 2,
-              issue_type: 'task',
-              created_at: '2025-10-23T10:00:00.000Z',
-              updated_at: '2025-10-23T10:00:00.000Z'
-            }
-          ]
-        }
-      ]
-    });
-    await view.load();
-    const rows = Array.from(mount.querySelectorAll('tr.epic-row'));
+    const rows = Array.from(mount.querySelectorAll('.epic-row'));
     const ids = rows.map((r) =>
-      /** @type {HTMLElement} */ (
-        r.querySelector('td.mono')
-      )?.textContent?.trim()
+      /** @type {HTMLElement} */ (r.querySelector('.epic-row__id'))
+        ?.textContent?.trim()
     );
     expect(ids).toEqual(['UI-12', 'UI-11', 'UI-13']);
   });
 
-  test('clicking inputs/selects inside a row does not navigate', async () => {
+  test('keyboard activation (Enter/Space) on a row navigates', async () => {
     document.body.innerHTML = '<div id="m"></div>';
     const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
-    const data = {
-      updateIssue: vi.fn(),
-      getIssue: vi.fn(async (id) => ({ id }))
-    };
-    const stores3 = new Map();
-    const listeners3 = new Set();
-    /** @param {string} id */
-    const getStore3 = (id) => {
-      let s = stores3.get(id);
-      if (!s) {
-        s = createSubscriptionIssueStore(id);
-        stores3.set(id, s);
-        s.subscribe(() => {
-          for (const fn of Array.from(listeners3)) {
-            try {
-              fn();
-            } catch {
-              /* ignore */
-            }
-          }
-        });
-      }
-      return s;
-    };
-    const issueStores3 = {
-      getStore: getStore3,
-      /** @param {string} id */
-      snapshotFor(id) {
-        return getStore3(id).snapshot().slice();
-      },
-      /** @param {() => void} fn */
-      subscribe(fn) {
-        listeners3.add(fn);
-        return () => listeners3.delete(fn);
-      }
-    };
+    const issueStores = createFakeIssueStores();
     const subscriptions = createSubscriptionStore(async () => {});
-    issueStores3.getStore('tab:epics').applyPush({
-      type: 'snapshot',
-      id: 'tab:epics',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-20',
-          title: 'Epic Click Guard',
-          issue_type: 'epic',
-          dependents: [{ id: 'UI-21' }]
-        }
-      ]
-    });
+    seed('tab:epics', issueStores, [
+      { id: 'UI-20', title: 'Epic Keyboard', issue_type: 'epic' }
+    ]);
+    seed('tab:epics:ready', issueStores, [
+      {
+        id: 'UI-21',
+        title: 'Row',
+        status: 'open',
+        priority: 2,
+        issue_type: 'task',
+        epic_id: 'UI-20'
+      }
+    ]);
     /** @type {string[]} */
     const navCalls = [];
     const view = createEpicsView(
       mount,
-      /** @type {any} */ (data),
+      undefined,
       (id) => navCalls.push(id),
       undefined,
       subscriptions,
-      /** @type {any} */ (issueStores3)
+      /** @type {any} */ (issueStores)
     );
     await view.load();
-    // Provide detail snapshot so a child row exists
-    issueStores3.getStore('detail:UI-20');
-    issueStores3.getStore('detail:UI-20').applyPush({
-      type: 'snapshot',
-      id: 'detail:UI-20',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-20',
-          title: 'Epic Click Guard',
-          issue_type: 'epic',
-          dependents: [
-            {
-              id: 'UI-21',
-              title: 'Row',
-              status: 'open',
-              priority: 2,
-              issue_type: 'task'
-            }
-          ]
-        }
-      ]
-    });
-    await view.load();
-    // Click a select inside the row; should not navigate
-    const sel = /** @type {HTMLSelectElement|null} */ (
-      mount.querySelector('tr.epic-row select')
+    const row = mount.querySelector('.epic-row');
+    row?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
     );
-    sel?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(navCalls.length).toBe(0);
+    expect(navCalls).toEqual(['UI-21']);
   });
 
-  test('shows Loading… while fetching children on manual expansion (no flicker)', async () => {
+  test('manual expand/collapse toggles children visibility', async () => {
     document.body.innerHTML = '<div id="m"></div>';
     const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
-    const data = {
-      updateIssue: vi.fn(),
-      getIssue: vi.fn(async (id) => ({ id }))
-    };
-    const stores4 = new Map();
-    const listeners4 = new Set();
-    /** @param {string} id */
-    const getStore4 = (id) => {
-      let s = stores4.get(id);
-      if (!s) {
-        s = createSubscriptionIssueStore(id);
-        stores4.set(id, s);
-        s.subscribe(() => {
-          for (const fn of Array.from(listeners4)) {
-            try {
-              fn();
-            } catch {
-              /* ignore */
-            }
-          }
-        });
-      }
-      return s;
-    };
-    const issueStores4 = {
-      getStore: getStore4,
-      /** @param {string} id */
-      snapshotFor(id) {
-        return getStore4(id).snapshot().slice();
-      },
-      /** @param {() => void} fn */
-      subscribe(fn) {
-        listeners4.add(fn);
-        return () => listeners4.delete(fn);
-      }
-    };
+    const issueStores = createFakeIssueStores();
     const subscriptions = createSubscriptionStore(async () => {});
-    issueStores4.getStore('tab:epics').applyPush({
-      type: 'snapshot',
-      id: 'tab:epics',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-40',
-          title: 'Auto Expanded',
-          issue_type: 'epic',
-          dependents: []
-        },
-        {
-          id: 'UI-41',
-          title: 'Manual Expand',
-          issue_type: 'epic',
-          dependents: [{ id: 'UI-42' }]
-        }
-      ]
-    });
+    seed('tab:epics', issueStores, [
+      { id: 'UI-40', title: 'Auto Expanded', issue_type: 'epic' },
+      { id: 'UI-41', title: 'Manual Expand', issue_type: 'epic' }
+    ]);
+    seed('tab:epics:ready', issueStores, [
+      {
+        id: 'UI-42',
+        title: 'Child',
+        status: 'open',
+        priority: 2,
+        issue_type: 'task',
+        epic_id: 'UI-41'
+      }
+    ]);
     const view = createEpicsView(
       mount,
-      /** @type {any} */ (data),
+      undefined,
       () => {},
       undefined,
       subscriptions,
-      /** @type {any} */ (issueStores4)
+      /** @type {any} */ (issueStores)
     );
     await view.load();
-    // Expand the second group manually
     const groups = Array.from(mount.querySelectorAll('.epic-group'));
     const manual = groups.find(
       (g) => g.getAttribute('data-epic-id') === 'UI-41'
     );
     expect(manual).toBeDefined();
+    expect(manual?.querySelector('.epic-children')).toBeNull();
     manual
       ?.querySelector('.epic-header')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-    // Immediately after click, expect Loading…
-    const text = manual?.querySelector('.epic-children')?.textContent || '';
-    expect(text.includes('Loading…')).toBe(true);
-    // Provide epic detail snapshot (no rendering assertion here)
-    issueStores4.getStore('detail:UI-41');
-    issueStores4.getStore('detail:UI-41').applyPush({
-      type: 'snapshot',
-      id: 'detail:UI-41',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-41',
-          title: 'Epic Manual',
-          issue_type: 'epic',
-          dependents: [
-            {
-              id: 'UI-42',
-              title: 'Child',
-              status: 'open',
-              priority: 2,
-              issue_type: 'task'
-            }
-          ]
-        }
-      ]
-    });
-    // Verify mapping via store presence
-    const d = issueStores4.snapshotFor('detail:UI-41');
-    expect(d.length).toBe(1);
-    expect(d[0]?.id).toBe('UI-41');
+    expect(manual?.querySelector('.epic-row')).not.toBeNull();
+    manual
+      ?.querySelector('.epic-header')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(manual?.querySelector('.epic-children')).toBeNull();
   });
-
-  test('clicking the editable title does not navigate and enters edit mode', async () => {
-    document.body.innerHTML = '<div id="m"></div>';
-    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
-    const data = {
-      updateIssue: vi.fn(),
-      getIssue: vi.fn(async (id) => ({ id }))
-    };
-    const stores5 = new Map();
-    const listeners5 = new Set();
-    /** @param {string} id */
-    const getStore5 = (id) => {
-      let s = stores5.get(id);
-      if (!s) {
-        s = createSubscriptionIssueStore(id);
-        stores5.set(id, s);
-        s.subscribe(() => {
-          for (const fn of Array.from(listeners5)) {
-            try {
-              fn();
-            } catch {
-              /* ignore */
-            }
-          }
-        });
-      }
-      return s;
-    };
-    const issueStores5 = {
-      getStore: getStore5,
-      /** @param {string} id */
-      snapshotFor(id) {
-        return getStore5(id).snapshot().slice();
-      },
-      /** @param {() => void} fn */
-      subscribe(fn) {
-        listeners5.add(fn);
-        return () => listeners5.delete(fn);
-      }
-    };
-    const subscriptions2 = createSubscriptionStore(async () => {});
-    issueStores5.getStore('tab:epics').applyPush({
-      type: 'snapshot',
-      id: 'tab:epics',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-30',
-          title: 'Epic Title Click',
-          issue_type: 'epic',
-          dependents: [{ id: 'UI-31' }]
-        }
-      ]
-    });
-    /** @type {string[]} */
-    const navCalls = [];
-    const view = createEpicsView(
-      mount,
-      /** @type {any} */ (data),
-      (id) => navCalls.push(id),
-      undefined,
-      subscriptions2,
-      /** @type {any} */ (issueStores5)
-    );
-    await view.load();
-    issueStores5.getStore('detail:UI-30');
-    issueStores5.getStore('detail:UI-30').applyPush({
-      type: 'snapshot',
-      id: 'detail:UI-30',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-30',
-          title: 'Epic Title Click',
-          issue_type: 'epic',
-          dependents: [
-            {
-              id: 'UI-31',
-              title: 'Clickable Title',
-              status: 'open',
-              priority: 2,
-              issue_type: 'task'
-            }
-          ]
-        }
-      ]
-    });
-    await view.load();
-    const titleSpan = /** @type {HTMLElement|null} */ (
-      mount.querySelector('tr.epic-row td:nth-child(3) .editable')
-    );
-    expect(titleSpan).not.toBeNull();
-    titleSpan?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    // Should not have navigated
-    expect(navCalls.length).toBe(0);
-    // Should render an input for title now
-    const input = /** @type {HTMLInputElement|null} */ (
-      mount.querySelector('tr.epic-row td:nth-child(3) input[type="text"]')
-    );
-    expect(input).not.toBeNull();
-  });
-
-  /**
-   * Minimal fake store mirroring the shape used by list.test.js /
-   * board.js (getState/setState/subscribe over `filters.search` and
-   * `filters.prio`).
-   *
-   * @param {any} initial_filters
-   */
-  function createFakeStore(initial_filters) {
-    return {
-      state: { selected_id: null, filters: initial_filters },
-      subs: /** @type {((s:any)=>void)[]} */ ([]),
-      getState() {
-        return this.state;
-      },
-      /** @param {any} patch */
-      setState(patch) {
-        this.state = {
-          ...this.state,
-          ...(patch || {}),
-          filters: { ...this.state.filters, ...(patch.filters || {}) }
-        };
-        for (const fn of this.subs) {
-          fn(this.state);
-        }
-      },
-      /** @param {(s:any)=>void} fn */
-      subscribe(fn) {
-        this.subs.push(fn);
-        return () => {
-          this.subs = this.subs.filter((f) => f !== fn);
-        };
-      }
-    };
-  }
 
   test('header search filters the top-level epic list', async () => {
     document.body.innerHTML = '<div id="m"></div>';
     const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
-    const data = {
-      updateIssue: vi.fn(),
-      getIssue: vi.fn(async (id) => ({ id }))
-    };
-    const stores6 = new Map();
-    const listeners6 = new Set();
-    /** @param {string} id */
-    const getStore6 = (id) => {
-      let s = stores6.get(id);
-      if (!s) {
-        s = createSubscriptionIssueStore(id);
-        stores6.set(id, s);
-        s.subscribe(() => {
-          for (const fn of Array.from(listeners6)) {
-            try {
-              fn();
-            } catch {
-              /* ignore */
-            }
-          }
-        });
-      }
-      return s;
-    };
-    const issueStores6 = {
-      getStore: getStore6,
-      /** @param {string} id */
-      snapshotFor(id) {
-        return getStore6(id).snapshot().slice();
-      },
-      /** @param {() => void} fn */
-      subscribe(fn) {
-        listeners6.add(fn);
-        return () => listeners6.delete(fn);
-      }
-    };
+    const issueStores = createFakeIssueStores();
     const subscriptions = createSubscriptionStore(async () => {});
-    issueStores6.getStore('tab:epics').applyPush({
-      type: 'snapshot',
-      id: 'tab:epics',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-50',
-          title: 'Alpha Epic',
-          issue_type: 'epic',
-          dependents: []
-        },
-        {
-          id: 'UI-51',
-          title: 'Beta Epic',
-          issue_type: 'epic',
-          dependents: []
-        }
-      ]
-    });
+    seed('tab:epics', issueStores, [
+      { id: 'UI-50', title: 'Alpha Epic', issue_type: 'epic' },
+      { id: 'UI-51', title: 'Beta Epic', issue_type: 'epic' }
+    ]);
     const fakeStore = createFakeStore({ search: '', prio: [0, 1, 2, 3] });
     const view = createEpicsView(
       mount,
-      /** @type {any} */ (data),
+      undefined,
       () => {},
       /** @type {any} */ (fakeStore),
       subscriptions,
-      /** @type {any} */ (issueStores6)
+      /** @type {any} */ (issueStores)
     );
     await view.load();
-    // Both epics visible with no search text
     expect(mount.querySelectorAll('.epic-group').length).toBe(2);
 
     fakeStore.setState({ filters: { search: 'alpha' } });
@@ -652,72 +305,25 @@ describe('views/epics', () => {
   test('header priority filter narrows the top-level epic list', async () => {
     document.body.innerHTML = '<div id="m"></div>';
     const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
-    const data = {
-      updateIssue: vi.fn(),
-      getIssue: vi.fn(async (id) => ({ id }))
-    };
-    const stores7 = new Map();
-    const listeners7 = new Set();
-    /** @param {string} id */
-    const getStore7 = (id) => {
-      let s = stores7.get(id);
-      if (!s) {
-        s = createSubscriptionIssueStore(id);
-        stores7.set(id, s);
-        s.subscribe(() => {
-          for (const fn of Array.from(listeners7)) {
-            try {
-              fn();
-            } catch {
-              /* ignore */
-            }
-          }
-        });
-      }
-      return s;
-    };
-    const issueStores7 = {
-      getStore: getStore7,
-      /** @param {string} id */
-      snapshotFor(id) {
-        return getStore7(id).snapshot().slice();
-      },
-      /** @param {() => void} fn */
-      subscribe(fn) {
-        listeners7.add(fn);
-        return () => listeners7.delete(fn);
-      }
-    };
+    const issueStores = createFakeIssueStores();
     const subscriptions = createSubscriptionStore(async () => {});
-    issueStores7.getStore('tab:epics').applyPush({
-      type: 'snapshot',
-      id: 'tab:epics',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-60',
-          title: 'High Prio Epic',
-          issue_type: 'epic',
-          priority: 0,
-          dependents: []
-        },
-        {
-          id: 'UI-61',
-          title: 'Low Prio Epic',
-          issue_type: 'epic',
-          priority: 3,
-          dependents: []
-        }
-      ]
-    });
+    seed('tab:epics', issueStores, [
+      {
+        id: 'UI-60',
+        title: 'High Prio Epic',
+        issue_type: 'epic',
+        priority: 0
+      },
+      { id: 'UI-61', title: 'Low Prio Epic', issue_type: 'epic', priority: 3 }
+    ]);
     const fakeStore = createFakeStore({ search: '', prio: [0, 1, 2, 3] });
     const view = createEpicsView(
       mount,
-      /** @type {any} */ (data),
+      undefined,
       () => {},
       /** @type {any} */ (fakeStore),
       subscriptions,
-      /** @type {any} */ (issueStores7)
+      /** @type {any} */ (issueStores)
     );
     await view.load();
     expect(mount.querySelectorAll('.epic-group').length).toBe(2);
@@ -734,64 +340,17 @@ describe('views/epics', () => {
   test('header hide-closed toggle excludes closed epics from the top-level list', async () => {
     document.body.innerHTML = '<div id="m"></div>';
     const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
-    const data = {
-      updateIssue: vi.fn(),
-      getIssue: vi.fn(async (id) => ({ id }))
-    };
-    const stores8 = new Map();
-    const listeners8 = new Set();
-    /** @param {string} id */
-    const getStore8 = (id) => {
-      let s = stores8.get(id);
-      if (!s) {
-        s = createSubscriptionIssueStore(id);
-        stores8.set(id, s);
-        s.subscribe(() => {
-          for (const fn of Array.from(listeners8)) {
-            try {
-              fn();
-            } catch {
-              /* ignore */
-            }
-          }
-        });
-      }
-      return s;
-    };
-    const issueStores8 = {
-      getStore: getStore8,
-      /** @param {string} id */
-      snapshotFor(id) {
-        return getStore8(id).snapshot().slice();
-      },
-      /** @param {() => void} fn */
-      subscribe(fn) {
-        listeners8.add(fn);
-        return () => listeners8.delete(fn);
-      }
-    };
+    const issueStores = createFakeIssueStores();
     const subscriptions = createSubscriptionStore(async () => {});
-    issueStores8.getStore('tab:epics').applyPush({
-      type: 'snapshot',
-      id: 'tab:epics',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-70',
-          title: 'Open Epic',
-          issue_type: 'epic',
-          status: 'open',
-          dependents: []
-        },
-        {
-          id: 'UI-71',
-          title: 'Closed Epic',
-          issue_type: 'epic',
-          status: 'closed',
-          dependents: []
-        }
-      ]
-    });
+    seed('tab:epics', issueStores, [
+      { id: 'UI-70', title: 'Open Epic', issue_type: 'epic', status: 'open' },
+      {
+        id: 'UI-71',
+        title: 'Closed Epic',
+        issue_type: 'epic',
+        status: 'closed'
+      }
+    ]);
     const fakeStore = createFakeStore({
       search: '',
       prio: [0, 1, 2, 3],
@@ -799,11 +358,11 @@ describe('views/epics', () => {
     });
     const view = createEpicsView(
       mount,
-      /** @type {any} */ (data),
+      undefined,
       () => {},
       /** @type {any} */ (fakeStore),
       subscriptions,
-      /** @type {any} */ (issueStores8)
+      /** @type {any} */ (issueStores)
     );
     await view.load();
     expect(mount.querySelectorAll('.epic-group').length).toBe(2);
@@ -820,56 +379,31 @@ describe('views/epics', () => {
   test('header hide-closed toggle also excludes closed children within an expanded epic', async () => {
     document.body.innerHTML = '<div id="m"></div>';
     const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
-    const data = {
-      updateIssue: vi.fn(),
-      getIssue: vi.fn(async (id) => ({ id }))
-    };
-    const stores9 = new Map();
-    const listeners9 = new Set();
-    /** @param {string} id */
-    const getStore9 = (id) => {
-      let s = stores9.get(id);
-      if (!s) {
-        s = createSubscriptionIssueStore(id);
-        stores9.set(id, s);
-        s.subscribe(() => {
-          for (const fn of Array.from(listeners9)) {
-            try {
-              fn();
-            } catch {
-              /* ignore */
-            }
-          }
-        });
-      }
-      return s;
-    };
-    const issueStores9 = {
-      getStore: getStore9,
-      /** @param {string} id */
-      snapshotFor(id) {
-        return getStore9(id).snapshot().slice();
-      },
-      /** @param {() => void} fn */
-      subscribe(fn) {
-        listeners9.add(fn);
-        return () => listeners9.delete(fn);
-      }
-    };
+    const issueStores = createFakeIssueStores();
     const subscriptions = createSubscriptionStore(async () => {});
-    issueStores9.getStore('tab:epics').applyPush({
-      type: 'snapshot',
-      id: 'tab:epics',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-80',
-          title: 'Epic With Closed Child',
-          issue_type: 'epic',
-          dependents: [{ id: 'UI-81' }, { id: 'UI-82' }]
-        }
-      ]
-    });
+    seed('tab:epics', issueStores, [
+      { id: 'UI-80', title: 'Epic With Closed Child', issue_type: 'epic' }
+    ]);
+    seed('tab:epics:ready', issueStores, [
+      {
+        id: 'UI-81',
+        title: 'Open Child',
+        status: 'open',
+        priority: 1,
+        issue_type: 'task',
+        epic_id: 'UI-80'
+      }
+    ]);
+    seed('tab:epics:closed', issueStores, [
+      {
+        id: 'UI-82',
+        title: 'Closed Child',
+        status: 'closed',
+        priority: 2,
+        issue_type: 'task',
+        epic_id: 'UI-80'
+      }
+    ]);
     const fakeStore = createFakeStore({
       search: '',
       prio: [0, 1, 2, 3],
@@ -877,51 +411,87 @@ describe('views/epics', () => {
     });
     const view = createEpicsView(
       mount,
-      /** @type {any} */ (data),
+      undefined,
       () => {},
       /** @type {any} */ (fakeStore),
       subscriptions,
-      /** @type {any} */ (issueStores9)
+      /** @type {any} */ (issueStores)
     );
     await view.load();
-    issueStores9.getStore('detail:UI-80');
-    issueStores9.getStore('detail:UI-80').applyPush({
-      type: 'snapshot',
-      id: 'detail:UI-80',
-      revision: 1,
-      issues: [
-        {
-          id: 'UI-80',
-          title: 'Epic With Closed Child',
-          issue_type: 'epic',
-          dependents: [
-            {
-              id: 'UI-81',
-              title: 'Open Child',
-              status: 'open',
-              priority: 1,
-              issue_type: 'task'
-            },
-            {
-              id: 'UI-82',
-              title: 'Closed Child',
-              status: 'closed',
-              priority: 2,
-              issue_type: 'task'
-            }
-          ]
-        }
-      ]
-    });
-    await view.load();
-    expect(mount.querySelectorAll('tr.epic-row').length).toBe(2);
+    expect(mount.querySelectorAll('.epic-row').length).toBe(2);
 
     fakeStore.setState({ filters: { hideClosed: true } });
-    const rows = mount.querySelectorAll('tr.epic-row');
+    const rows = mount.querySelectorAll('.epic-row');
     expect(rows.length).toBe(1);
-    expect(rows[0].querySelector('.mono')?.textContent).toContain('UI-81');
+    expect(rows[0].querySelector('.epic-row__id')?.textContent).toContain(
+      'UI-81'
+    );
 
     fakeStore.setState({ filters: { hideClosed: false } });
-    expect(mount.querySelectorAll('tr.epic-row').length).toBe(2);
+    expect(mount.querySelectorAll('.epic-row').length).toBe(2);
+  });
+
+  test('computes blocked/ready/wip/closed rollups for the epic header', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+    const issueStores = createFakeIssueStores();
+    const subscriptions = createSubscriptionStore(async () => {});
+    seed('tab:epics', issueStores, [
+      { id: 'UI-90', title: 'Epic Rollup', issue_type: 'epic' }
+    ]);
+    seed('tab:epics:blocked', issueStores, [
+      {
+        id: 'UI-91',
+        status: 'open',
+        issue_type: 'bug',
+        epic_id: 'UI-90'
+      }
+    ]);
+    seed('tab:epics:ready', issueStores, [
+      {
+        id: 'UI-92',
+        status: 'open',
+        issue_type: 'task',
+        epic_id: 'UI-90'
+      }
+    ]);
+    seed('tab:epics:in-progress', issueStores, [
+      {
+        id: 'UI-93',
+        status: 'in_progress',
+        issue_type: 'task',
+        epic_id: 'UI-90'
+      }
+    ]);
+    seed('tab:epics:closed', issueStores, [
+      {
+        id: 'UI-94',
+        status: 'closed',
+        issue_type: 'task',
+        epic_id: 'UI-90'
+      },
+      {
+        id: 'UI-95',
+        status: 'closed',
+        issue_type: 'task',
+        epic_id: 'UI-90'
+      }
+    ]);
+    const view = createEpicsView(
+      mount,
+      undefined,
+      () => {},
+      undefined,
+      subscriptions,
+      /** @type {any} */ (issueStores)
+    );
+    await view.load();
+    const header = /** @type {HTMLElement} */ (
+      mount.querySelector('.epic-header')
+    );
+    expect(header.textContent).toContain('1 blkd');
+    expect(header.textContent).toContain('1 ready');
+    expect(header.textContent).toContain('1 wip');
+    expect(header.textContent).toContain('2/5 done');
   });
 });
