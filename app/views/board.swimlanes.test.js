@@ -157,4 +157,91 @@ describe('views/board epic swimlanes', () => {
     expect(mount.querySelector('.board-lane__body')).toBeNull();
     expect(header.getAttribute('aria-expanded')).toBe('false');
   });
+
+  test('lane with no children visible under current filters auto-collapses', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+
+    const issueStores = createTestIssueStores();
+    issueStores.getStore('tab:board:epics').applyPush({
+      type: 'snapshot',
+      id: 'tab:board:epics',
+      revision: 1,
+      issues: [{ id: 'EPIC-1', title: 'Alpha epic' }]
+    });
+    // Only a closed child — hiding closed leaves the lane with nothing to show.
+    issueStores.getStore('tab:board:closed').applyPush({
+      type: 'snapshot',
+      id: 'tab:board:closed',
+      revision: 1,
+      issues: [
+        {
+          id: 'C-1',
+          title: 'closed in epic',
+          epic_id: 'EPIC-1',
+          closed_at: Date.now()
+        }
+      ]
+    });
+
+    const store = {
+      getState: () => ({ filters: { hideClosed: true } }),
+      setState: () => {},
+      subscribe: () => () => {}
+    };
+
+    const view = createBoardView(
+      mount,
+      null,
+      () => {},
+      store,
+      undefined,
+      issueStores
+    );
+    await view.load();
+
+    const header = /** @type {HTMLElement} */ (
+      mount.querySelector('.board-lane__header')
+    );
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    expect(mount.querySelector('.board-lane__body')).toBeNull();
+  });
+
+  test('epic swimlane shows the epic title, not a duplicate ID, when title is missing', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+
+    const issueStores = createTestIssueStores();
+    issueStores.getStore('tab:board:epics').applyPush({
+      type: 'snapshot',
+      id: 'tab:board:epics',
+      revision: 1,
+      issues: [{ id: 'EPIC-1' }]
+    });
+    issueStores.getStore('tab:board:ready').applyPush({
+      type: 'snapshot',
+      id: 'tab:board:ready',
+      revision: 1,
+      issues: [{ id: 'R-1', title: 'in epic', epic_id: 'EPIC-1', priority: 1 }]
+    });
+
+    const view = createBoardView(
+      mount,
+      null,
+      () => {},
+      undefined,
+      undefined,
+      issueStores
+    );
+    await view.load();
+
+    const lane_title = mount
+      .querySelector('.board-lane__title')
+      ?.textContent?.trim();
+    expect(lane_title).toBe('(untitled epic)');
+    const lane_id = mount
+      .querySelector('.board-lane__id')
+      ?.textContent?.trim();
+    expect(lane_title).not.toBe(lane_id);
+  });
 });

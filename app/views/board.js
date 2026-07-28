@@ -381,7 +381,11 @@ export function createBoardView(
    * @param {typeof COLUMNS} cols
    */
   function laneTemplate(lane, cols) {
-    const is_open = !collapsed_lanes.has(lane.key);
+    const visible_total = cols.reduce(
+      (sum, col) => sum + lane[col.key].length,
+      0
+    );
+    const is_open = visible_total > 0 && !collapsed_lanes.has(lane.key);
     const total =
       lane.blocked.length +
       lane.ready.length +
@@ -396,7 +400,7 @@ export function createBoardView(
     const pct = lane_total > 0 ? Math.round((done / lane_total) * 100) : 0;
     const color = lane.key ? colorForEpic(lane.key) : 'var(--muted)';
     const title = lane.key
-      ? lane.epic?.title || lane.key
+      ? lane.epic?.title || '(untitled epic)'
       : 'No epic · orphan issues';
 
     return html`
@@ -480,7 +484,9 @@ export function createBoardView(
    */
   function laneCellTemplate(lane, col) {
     const items = lane[col.key];
-    const lane_label = lane.key ? lane.epic?.title || lane.key : 'No epic';
+    const lane_label = lane.key
+      ? lane.epic?.title || '(untitled epic)'
+      : 'No epic';
     return html`
       <div
         class="board-lane__cell"
