@@ -672,6 +672,7 @@ export function bootstrap(root_element) {
       epics_root,
       data,
       (id) => router.gotoIssue(id),
+      store,
       subscriptions,
       sub_issue_stores
     );

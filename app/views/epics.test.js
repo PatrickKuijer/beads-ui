@@ -65,6 +65,7 @@ describe('views/epics', () => {
       mount,
       /** @type {any} */ (data),
       (id) => navCalls.push(id),
+      undefined,
       subscriptions,
       /** @type {any} */ (issueStores)
     );
@@ -167,6 +168,7 @@ describe('views/epics', () => {
       mount,
       /** @type {any} */ (data),
       () => {},
+      undefined,
       subscriptions,
       /** @type {any} */ (issueStores2)
     );
@@ -283,6 +285,7 @@ describe('views/epics', () => {
       mount,
       /** @type {any} */ (data),
       (id) => navCalls.push(id),
+      undefined,
       subscriptions,
       /** @type {any} */ (issueStores3)
     );
@@ -382,6 +385,7 @@ describe('views/epics', () => {
       mount,
       /** @type {any} */ (data),
       () => {},
+      undefined,
       subscriptions,
       /** @type {any} */ (issueStores4)
     );
@@ -487,6 +491,7 @@ describe('views/epics', () => {
       mount,
       /** @type {any} */ (data),
       (id) => navCalls.push(id),
+      undefined,
       subscriptions2,
       /** @type {any} */ (issueStores5)
     );
@@ -526,5 +531,203 @@ describe('views/epics', () => {
       mount.querySelector('tr.epic-row td:nth-child(3) input[type="text"]')
     );
     expect(input).not.toBeNull();
+  });
+
+  /**
+   * Minimal fake store mirroring the shape used by list.test.js /
+   * board.js (getState/setState/subscribe over `filters.search` and
+   * `filters.prio`).
+   *
+   * @param {any} initial_filters
+   */
+  function createFakeStore(initial_filters) {
+    return {
+      state: { selected_id: null, filters: initial_filters },
+      subs: /** @type {((s:any)=>void)[]} */ ([]),
+      getState() {
+        return this.state;
+      },
+      /** @param {any} patch */
+      setState(patch) {
+        this.state = {
+          ...this.state,
+          ...(patch || {}),
+          filters: { ...this.state.filters, ...(patch.filters || {}) }
+        };
+        for (const fn of this.subs) {
+          fn(this.state);
+        }
+      },
+      /** @param {(s:any)=>void} fn */
+      subscribe(fn) {
+        this.subs.push(fn);
+        return () => {
+          this.subs = this.subs.filter((f) => f !== fn);
+        };
+      }
+    };
+  }
+
+  test('header search filters the top-level epic list', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+    const data = {
+      updateIssue: vi.fn(),
+      getIssue: vi.fn(async (id) => ({ id }))
+    };
+    const stores6 = new Map();
+    const listeners6 = new Set();
+    /** @param {string} id */
+    const getStore6 = (id) => {
+      let s = stores6.get(id);
+      if (!s) {
+        s = createSubscriptionIssueStore(id);
+        stores6.set(id, s);
+        s.subscribe(() => {
+          for (const fn of Array.from(listeners6)) {
+            try {
+              fn();
+            } catch {
+              /* ignore */
+            }
+          }
+        });
+      }
+      return s;
+    };
+    const issueStores6 = {
+      getStore: getStore6,
+      /** @param {string} id */
+      snapshotFor(id) {
+        return getStore6(id).snapshot().slice();
+      },
+      /** @param {() => void} fn */
+      subscribe(fn) {
+        listeners6.add(fn);
+        return () => listeners6.delete(fn);
+      }
+    };
+    const subscriptions = createSubscriptionStore(async () => {});
+    issueStores6.getStore('tab:epics').applyPush({
+      type: 'snapshot',
+      id: 'tab:epics',
+      revision: 1,
+      issues: [
+        {
+          id: 'UI-50',
+          title: 'Alpha Epic',
+          issue_type: 'epic',
+          dependents: []
+        },
+        {
+          id: 'UI-51',
+          title: 'Beta Epic',
+          issue_type: 'epic',
+          dependents: []
+        }
+      ]
+    });
+    const fakeStore = createFakeStore({ search: '', prio: [0, 1, 2, 3] });
+    const view = createEpicsView(
+      mount,
+      /** @type {any} */ (data),
+      () => {},
+      /** @type {any} */ (fakeStore),
+      subscriptions,
+      /** @type {any} */ (issueStores6)
+    );
+    await view.load();
+    // Both epics visible with no search text
+    expect(mount.querySelectorAll('.epic-group').length).toBe(2);
+
+    fakeStore.setState({ filters: { search: 'alpha' } });
+    expect(mount.querySelectorAll('.epic-group').length).toBe(1);
+    const remaining = mount.querySelector('.epic-group');
+    expect(remaining?.getAttribute('data-epic-id')).toBe('UI-50');
+
+    fakeStore.setState({ filters: { search: '' } });
+    expect(mount.querySelectorAll('.epic-group').length).toBe(2);
+  });
+
+  test('header priority filter narrows the top-level epic list', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+    const data = {
+      updateIssue: vi.fn(),
+      getIssue: vi.fn(async (id) => ({ id }))
+    };
+    const stores7 = new Map();
+    const listeners7 = new Set();
+    /** @param {string} id */
+    const getStore7 = (id) => {
+      let s = stores7.get(id);
+      if (!s) {
+        s = createSubscriptionIssueStore(id);
+        stores7.set(id, s);
+        s.subscribe(() => {
+          for (const fn of Array.from(listeners7)) {
+            try {
+              fn();
+            } catch {
+              /* ignore */
+            }
+          }
+        });
+      }
+      return s;
+    };
+    const issueStores7 = {
+      getStore: getStore7,
+      /** @param {string} id */
+      snapshotFor(id) {
+        return getStore7(id).snapshot().slice();
+      },
+      /** @param {() => void} fn */
+      subscribe(fn) {
+        listeners7.add(fn);
+        return () => listeners7.delete(fn);
+      }
+    };
+    const subscriptions = createSubscriptionStore(async () => {});
+    issueStores7.getStore('tab:epics').applyPush({
+      type: 'snapshot',
+      id: 'tab:epics',
+      revision: 1,
+      issues: [
+        {
+          id: 'UI-60',
+          title: 'High Prio Epic',
+          issue_type: 'epic',
+          priority: 0,
+          dependents: []
+        },
+        {
+          id: 'UI-61',
+          title: 'Low Prio Epic',
+          issue_type: 'epic',
+          priority: 3,
+          dependents: []
+        }
+      ]
+    });
+    const fakeStore = createFakeStore({ search: '', prio: [0, 1, 2, 3] });
+    const view = createEpicsView(
+      mount,
+      /** @type {any} */ (data),
+      () => {},
+      /** @type {any} */ (fakeStore),
+      subscriptions,
+      /** @type {any} */ (issueStores7)
+    );
+    await view.load();
+    expect(mount.querySelectorAll('.epic-group').length).toBe(2);
+
+    fakeStore.setState({ filters: { prio: [0] } });
+    expect(mount.querySelectorAll('.epic-group').length).toBe(1);
+    const remaining = mount.querySelector('.epic-group');
+    expect(remaining?.getAttribute('data-epic-id')).toBe('UI-60');
+
+    fakeStore.setState({ filters: { prio: [0, 1, 2, 3] } });
+    expect(mount.querySelectorAll('.epic-group').length).toBe(2);
   });
 });

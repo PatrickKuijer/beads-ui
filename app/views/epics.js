@@ -18,6 +18,7 @@ import { createIssueRowRenderer } from './issue-row.js';
  * @param {HTMLElement} mount_element
  * @param {{ updateIssue: (input: any) => Promise<any> }} data
  * @param {(id: string) => void} goto_issue - Navigate to issue detail.
+ * @param {{ getState: () => any, setState: (patch: any) => void, subscribe?: (fn: (s:any)=>void)=>()=>void }} [store] - Optional shared state store (header search/priority filters).
  * @param {{ subscribeList: (client_id: string, spec: { type: string, params?: Record<string, string|number|boolean> }) => Promise<() => Promise<void>>, selectors: { getIds: (client_id: string) => string[], count?: (client_id: string) => number } }} [subscriptions]
  * @param {{ snapshotFor?: (client_id: string) => any[], subscribe?: (fn: () => void) => () => void }} [issue_stores]
  */
@@ -25,9 +26,12 @@ export function createEpicsView(
   mount_element,
   data,
   goto_issue,
+  store = undefined,
   subscriptions = undefined,
   issue_stores = undefined
 ) {
+  /** @type {any[]} */
+  let all_groups = [];
   /** @type {any[]} */
   let groups = [];
   /** @type {Set<string>} */
@@ -38,11 +42,79 @@ export function createEpicsView(
   const epic_unsubs = new Map();
   // Centralized selection helpers
   const selectors = issue_stores ? createListSelectors(issue_stores) : null;
+
+  /**
+   * Current id/title search text from the shared header search box.
+   *
+   * @returns {string}
+   */
+  function searchText() {
+    if (!store) {
+      return '';
+    }
+    try {
+      const s = store.getState();
+      return String(s?.filters?.search || '').toLowerCase();
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Current priority filter from the shared header prio chips.
+   *
+   * @returns {number[]}
+   */
+  function prioFilter() {
+    if (!store) {
+      return [0, 1, 2, 3];
+    }
+    try {
+      const s = store.getState();
+      return Array.isArray(s?.filters?.prio) ? s.filters.prio : [0, 1, 2, 3];
+    } catch {
+      return [0, 1, 2, 3];
+    }
+  }
+
+  /**
+   * Apply the shared header search/priority filters to a list of epic
+   * groups (top-level epics only; does not touch expanded children).
+   *
+   * @param {any[]} list
+   * @returns {any[]}
+   */
+  function applyFilters(list) {
+    let filtered = list;
+    const needle = searchText();
+    if (needle) {
+      filtered = filtered.filter((g) => {
+        const epic = g.epic || {};
+        const a = String(epic.id || '').toLowerCase();
+        const b = String(epic.title || '').toLowerCase();
+        return a.includes(needle) || b.includes(needle);
+      });
+    }
+    const prio = prioFilter();
+    if (prio.length < 4) {
+      filtered = filtered.filter((g) =>
+        prio.includes(Number(g.epic?.priority))
+      );
+    }
+    return filtered;
+  }
+
+  /** Recompute the filtered `groups` from the current `all_groups`. */
+  function recomputeGroups() {
+    groups = applyFilters(all_groups);
+  }
+
   // Live re-render on pushes: recompute groups when stores change
   if (selectors) {
     selectors.subscribe(() => {
       const had_none = groups.length === 0;
-      groups = buildGroupsFromSnapshot();
+      all_groups = buildGroupsFromSnapshot();
+      recomputeGroups();
       doRender();
       // Auto-expand first epic when transitioning from empty to non-empty
       if (had_none && groups.length > 0) {
@@ -50,6 +122,22 @@ export function createEpicsView(
         if (first_id && !expanded.has(first_id)) {
           void toggle(first_id);
         }
+      }
+    });
+  }
+
+  // Re-render when the shared header search text or prio filter changes.
+  if (store && typeof store.subscribe === 'function') {
+    let last_search = searchText();
+    let last_prio = JSON.stringify(prioFilter());
+    store.subscribe(() => {
+      const next_search = searchText();
+      const next_prio = JSON.stringify(prioFilter());
+      if (next_search !== last_search || next_prio !== last_prio) {
+        last_search = next_search;
+        last_prio = next_prio;
+        recomputeGroups();
+        doRender();
       }
     });
   }
@@ -262,7 +350,8 @@ export function createEpicsView(
 
   return {
     async load() {
-      groups = buildGroupsFromSnapshot();
+      all_groups = buildGroupsFromSnapshot();
+      recomputeGroups();
       doRender();
       // Auto-expand first epic on screen
       try {
