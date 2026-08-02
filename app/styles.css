@@ -558,34 +558,43 @@ a {
   overflow: hidden;
 }
 
-/* Route shells */
+/* Route shells.
+   `.app-shell` is `overflow: hidden`, so a route that does not constrain its
+   own height grows past the viewport and is clipped with no scrollbar. Every
+   route therefore fills the shell and hands the overflow to one scrolling
+   child: the `.panel__body` for issues/board/detail, and the route element
+   itself for epics, which renders no panel. */
 .route {
   min-height: 0; /* allow children to scroll */
+  height: 100%;
+  max-height: 100%;
 }
 
-/* Board route: fill height and let columns scroll */
 .route {
-  &.board {
+  &.issues,
+  &.board,
+  &.detail {
     display: flex;
     flex-direction: column;
-    min-height: 0;
-    height: 100%;
-    max-height: 100%;
-
-    .panel__body {
-      flex: 1;
-      min-height: 0;
-      overflow: auto; /* scroll lanes vertically, columns horizontally */
-    }
   }
-}
 
-/* Epics route: fill height and scroll the epic list vertically */
-.route {
-  &.epics {
-    height: 100%;
-    max-height: 100%;
+  /* Issues wraps its body in a `.panel`; board and detail do not. */
+  &.issues .panel {
+    flex: 1;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &.issues .panel__body,
+  &.board .panel__body,
+  &.detail .panel__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto; /* board also scrolls its columns horizontally */
+  }
+
+  &.epics {
     overflow-y: auto;
     overflow-x: hidden;
   }
