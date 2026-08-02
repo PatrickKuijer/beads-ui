@@ -399,7 +399,7 @@ export function createListView(
                   <col style="width: 108px" />
                   <col />
                   <col style="width: 150px" />
-                  <col style="width: 58px" />
+                  <col style="width: 118px" />
                   <col style="width: 128px" />
                   <col style="width: 72px" />
                 </colgroup>
