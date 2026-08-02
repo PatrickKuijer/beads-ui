@@ -108,11 +108,21 @@ export function normalizeIssueList(value) {
       const n = parseTimestamp(closed_raw);
       closed_at = Number.isFinite(n) ? n : null;
     }
-    // `bd list`/`bd ready`/`bd blocked` expose the parent-child link via a
-    // top-level `parent` string field, not `epic_id` - the client-side
-    // Issue shape expects `epic_id`, so derive it here for every consumer.
+    // `bd list`/`bd ready` expose the parent-child link via a top-level
+    // `parent` string field, not `epic_id` - the client-side Issue shape
+    // expects `epic_id`, so derive it here for every consumer. `bd blocked`
+    // omits `parent` entirely (bd 1.1.0), so it is backfilled upstream by
+    // backfillParents(); an existing `epic_id` is honoured as a last resort
+    // rather than clobbered.
     const parent = /** @type {any} */ (it).parent;
-    const epic_id = typeof parent === 'string' && parent.length > 0 ? parent : null;
+    const existing = /** @type {any} */ (it).epic_id;
+    /** @type {string | null} */
+    let epic_id = null;
+    if (typeof parent === 'string' && parent.length > 0) {
+      epic_id = parent;
+    } else if (typeof existing === 'string' && existing.length > 0) {
+      epic_id = existing;
+    }
     out.push({
       ...it,
       id,
@@ -183,6 +193,10 @@ export async function fetchListForSubscription(spec, options = {}) {
         ? [res.stdoutJson]
         : [];
 
+    if (spec.type === 'blocked-issues') {
+      raw = await backfillParents(raw, { cwd: options.cwd });
+    }
+
     const items = normalizeIssueList(raw);
     return { ok: true, items };
   } catch (err) {
@@ -196,6 +210,62 @@ export async function fetchListForSubscription(spec, options = {}) {
       }
     };
   }
+}
+
+/**
+ * Fill in the missing `parent` field on `bd blocked --json` rows.
+ *
+ * `bd blocked` (bd 1.1.0) is the one list command that does not emit the
+ * top-level `parent` string, so without this every blocked issue normalizes to
+ * `epic_id: null` and gets grouped into the Board's "No epic - orphan issues"
+ * lane and dropped from the Epics rollups, even when it has a parent epic.
+ *
+ * One `bd list` call covers the whole set: blocked issues are never closed, so
+ * they are all present in the default (non-closed) listing. A failure here is
+ * not fatal - the rows are returned unchanged, i.e. the pre-existing behaviour.
+ *
+ * @param {any[]} rows
+ * @param {{ cwd?: string }} [options]
+ * @returns {Promise<any[]>}
+ */
+async function backfillParents(rows, options = {}) {
+  const needs_parent = rows.some(
+    (it) => typeof it?.parent !== 'string' || it.parent.length === 0
+  );
+  if (!needs_parent) {
+    return rows;
+  }
+  /** @type {Map<string, string>} */
+  const parent_by_id = new Map();
+  try {
+    const res = await runBdJson(
+      ['list', '--json', '--tree=false', '--limit', '0'],
+      {
+        cwd: options.cwd
+      }
+    );
+    if (!res || res.code !== 0 || !Array.isArray(res.stdoutJson)) {
+      log('parent backfill: bd list failed code=%s', res?.code);
+      return rows;
+    }
+    for (const it of res.stdoutJson) {
+      const id = String(/** @type {any} */ (it)?.id ?? '');
+      const parent = /** @type {any} */ (it)?.parent;
+      if (id.length > 0 && typeof parent === 'string' && parent.length > 0) {
+        parent_by_id.set(id, parent);
+      }
+    }
+  } catch (err) {
+    log('parent backfill failed: %o', err);
+    return rows;
+  }
+  return rows.map((it) => {
+    if (typeof it?.parent === 'string' && it.parent.length > 0) {
+      return it;
+    }
+    const parent = parent_by_id.get(String(it?.id ?? ''));
+    return parent ? { ...it, parent } : it;
+  });
 }
 
 /**

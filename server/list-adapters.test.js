@@ -172,6 +172,72 @@ describe('list adapters for subscription types', () => {
     }
   });
 
+  test('backfills parent for blocked issues, which bd blocked omits', async () => {
+    /** @type {import('vitest').Mock} */ (runBdJson).mockImplementation(
+      async (/** @type {string[]} */ args) => {
+        if (args[0] === 'blocked') {
+          return {
+            code: 0,
+            stdoutJson: [
+              { id: 'B-1', updated_at: '2024-01-01T00:00:00.000Z' },
+              { id: 'B-2', updated_at: '2024-01-01T00:00:00.000Z' }
+            ]
+          };
+        }
+        return {
+          code: 0,
+          stdoutJson: [
+            {
+              id: 'B-1',
+              updated_at: '2024-01-01T00:00:00.000Z',
+              parent: 'EPIC-1'
+            },
+            { id: 'B-2', updated_at: '2024-01-01T00:00:00.000Z' }
+          ]
+        };
+      }
+    );
+    const res = await fetchListForSubscription({ type: 'blocked-issues' });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.items[0]).toMatchObject({ id: 'B-1', epic_id: 'EPIC-1' });
+      expect(res.items[1]).toMatchObject({ id: 'B-2', epic_id: null });
+    }
+  });
+
+  test('blocked backfill lookup failure leaves rows unchanged', async () => {
+    /** @type {import('vitest').Mock} */ (runBdJson).mockImplementation(
+      async (/** @type {string[]} */ args) => {
+        if (args[0] === 'blocked') {
+          return {
+            code: 0,
+            stdoutJson: [{ id: 'B-1', updated_at: '2024-01-01T00:00:00.000Z' }]
+          };
+        }
+        return { code: 2, stderr: 'boom' };
+      }
+    );
+    const res = await fetchListForSubscription({ type: 'blocked-issues' });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.items[0]).toMatchObject({ id: 'B-1', epic_id: null });
+    }
+  });
+
+  test('blocked issues that already carry parent skip the extra bd call', async () => {
+    /** @type {import('vitest').Mock} */ (runBdJson).mockResolvedValue({
+      code: 0,
+      stdoutJson: [
+        { id: 'B-1', updated_at: '2024-01-01T00:00:00.000Z', parent: 'EPIC-1' }
+      ]
+    });
+    const res = await fetchListForSubscription({ type: 'blocked-issues' });
+    expect(res.ok).toBe(true);
+    expect(
+      /** @type {import('vitest').Mock} */ (runBdJson)
+    ).toHaveBeenCalledTimes(1);
+  });
+
   test('fetchListForSubscription surfaces bd error', async () => {
     /** @type {import('vitest').Mock} */ (runBdJson).mockResolvedValue({
       code: 2,
