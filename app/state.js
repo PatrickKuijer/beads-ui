@@ -12,7 +12,8 @@ import { debug } from './utils/logging.js';
  */
 
 /**
- * @typedef {'issues'|'epics'|'board'} ViewName
+ * @typedef {'issues'|'epics'|'board'|'roadmap'} ViewName - `roadmap` is the
+ * throwaway sprints/roadmap prototype (UI-r429); drop it with the prototype.
  */
 
 /**

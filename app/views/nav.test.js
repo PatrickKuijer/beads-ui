@@ -34,7 +34,9 @@ describe('views/nav', () => {
       /** @type {any} */ (router)
     );
     const links = mount.querySelectorAll('a.tab');
-    expect(links.length).toBe(3);
+    // 4th tab is the throwaway Roadmap prototype (UI-r429); back to 3 when
+    // the prototype is dropped.
+    expect(links.length).toBe(4);
     links[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(router.gotoView).toHaveBeenCalledWith('epics');
     links[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
