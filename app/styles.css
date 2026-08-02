@@ -580,6 +580,17 @@ a {
   }
 }
 
+/* Epics route: fill height and scroll the epic list vertically */
+.route {
+  &.epics {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
 .panel {
   min-height: 0;
   overflow: visible;
