@@ -1411,6 +1411,9 @@ input.inline-edit:focus {
   border-radius: 7px;
   flex: none;
 }
+.epic-header__tile .type-icon {
+  color: inherit;
+}
 .epic-header__id {
   font-size: 11px;
   flex: none;
@@ -1673,6 +1676,11 @@ input.inline-edit:focus {
   font-size: 11px;
   font-weight: 700;
   flex: none;
+}
+/* The tile carries the per-epic accent inline; the glyph inherits it
+   instead of the generic type color. */
+.board-lane__tile .type-icon {
+  color: inherit;
 }
 .board-lane__id {
   font-size: 11px;
