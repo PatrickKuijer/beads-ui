@@ -15,11 +15,12 @@ import { createBoardView } from './views/board.js';
 import { createDetailView } from './views/detail.js';
 import { createEpicsView } from './views/epics.js';
 import { createFatalErrorDialog } from './views/fatal-error-dialog.js';
-import { createIssueDialog } from './views/issue-dialog.js';
 import { createHeaderControls } from './views/header-controls.js';
+import { createIssueDialog } from './views/issue-dialog.js';
 import { createListView } from './views/list.js';
 import { createTopNav } from './views/nav.js';
 import { createNewIssueDialog } from './views/new-issue-dialog.js';
+import { createSessionsView } from './views/sessions.js';
 import { createSidebar } from './views/sidebar.js';
 import {
   createWorkspacePicker,
@@ -43,6 +44,7 @@ export function bootstrap(root_element) {
     </section>
     <section id="epics-root" class="route epics" hidden></section>
     <section id="board-root" class="route board" hidden></section>
+    <section id="sessions-root" class="route sessions" hidden></section>
     <section id="detail-panel" class="route detail" hidden></section>
   `;
   render(shell, root_element);
@@ -55,12 +57,21 @@ export function bootstrap(root_element) {
   const epics_root = document.getElementById('epics-root');
   /** @type {HTMLElement|null} */
   const board_root = document.getElementById('board-root');
+  /** @type {HTMLElement|null} */
+  const sessions_root = document.getElementById('sessions-root');
 
   /** @type {HTMLElement|null} */
   const list_mount = document.getElementById('list-panel');
   /** @type {HTMLElement|null} */
   const detail_mount = document.getElementById('detail-panel');
-  if (list_mount && issues_root && epics_root && board_root && detail_mount) {
+  if (
+    list_mount &&
+    issues_root &&
+    epics_root &&
+    board_root &&
+    sessions_root &&
+    detail_mount
+  ) {
     /** @type {HTMLElement|null} */
     const header_loading = document.getElementById('header-loading');
     const activity = createActivityIndicator(header_loading);
@@ -408,7 +419,9 @@ export function bootstrap(root_element) {
             search: typeof obj.search === 'string' ? obj.search : '',
             type: parsed_type,
             prio: Array.isArray(obj.prio)
-              ? obj.prio.filter((/** @type {unknown} */ p) => typeof p === 'number')
+              ? obj.prio.filter(
+                  (/** @type {unknown} */ p) => typeof p === 'number'
+                )
               : [0, 1, 2, 3],
             hideClosed: obj.hideClosed === true
           };
@@ -418,14 +431,15 @@ export function bootstrap(root_element) {
       log('filters parse error: %o', err);
     }
     // Load last-view from storage
-    /** @type {'issues'|'epics'|'board'} */
+    /** @type {'issues'|'epics'|'board'|'sessions'} */
     let last_view = 'issues';
     try {
       const raw_view = window.localStorage.getItem('beads-ui.view');
       if (
         raw_view === 'issues' ||
         raw_view === 'epics' ||
-        raw_view === 'board'
+        raw_view === 'board' ||
+        raw_view === 'sessions'
       ) {
         last_view = raw_view;
       }
@@ -582,7 +596,7 @@ export function bootstrap(root_element) {
       const s = store.getState();
       store.setState({ selected_id: null });
       try {
-        /** @type {'issues'|'epics'|'board'} */
+        /** @type {'issues'|'epics'|'board'|'sessions'} */
         const v = s.view || 'issues';
         router.gotoView(v);
       } catch {
@@ -705,9 +719,18 @@ export function bootstrap(root_element) {
       sub_issue_stores,
       transport
     );
+    // Sessions reads the same four status lists as Board (see below), plus a
+    // per-map-bead issue-detail subscription it registers itself.
+    const sessions_view = createSessionsView(
+      sessions_root,
+      (id) => router.gotoIssue(id),
+      store,
+      sub_issue_stores,
+      subscriptions
+    );
     // Preload epics when switching to view
     /**
-     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board', filters: any }} s
+     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board'|'sessions', filters: any }} s
      */
     // --- Subscriptions: tab-level management and filter-driven updates ---
     /** @type {null | (() => Promise<void>)} */
@@ -771,7 +794,7 @@ export function bootstrap(root_element) {
     /**
      * Ensure only the active tab has subscriptions; clean up previous.
      *
-     * @param {{ view: 'issues'|'epics'|'board', filters: any }} s
+     * @param {{ view: 'issues'|'epics'|'board'|'sessions', filters: any }} s
      */
     function ensureTabSubscriptions(s) {
       // Issues tab
@@ -984,8 +1007,10 @@ export function bootstrap(root_element) {
         }
       }
 
-      // Board tab subscribes to lists used by columns
-      if (s.view === 'board') {
+      // Board tab subscribes to lists used by columns. Sessions reads the
+      // same four lists: they are where map beads are found, and what the
+      // live status overlaid on a map's queue comes from.
+      if (s.view === 'board' || s.view === 'sessions') {
         // Ready column
         if (
           !unsub_board_ready &&
@@ -1159,14 +1184,21 @@ export function bootstrap(root_element) {
     /**
      * Manage route visibility and list subscriptions per view.
      *
-     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board', filters: any }} s
+     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board'|'sessions', filters: any }} s
      */
     const onRouteChange = (s) => {
-      if (issues_root && epics_root && board_root && detail_mount) {
+      if (
+        issues_root &&
+        epics_root &&
+        board_root &&
+        sessions_root &&
+        detail_mount
+      ) {
         // Underlying route visibility is controlled only by selected view
         issues_root.hidden = s.view !== 'issues';
         epics_root.hidden = s.view !== 'epics';
         board_root.hidden = s.view !== 'board';
+        sessions_root.hidden = s.view !== 'sessions';
         // detail_mount visibility handled in subscription above
       }
       // Ensure subscriptions for the active tab before loading the view to
@@ -1177,6 +1209,9 @@ export function bootstrap(root_element) {
       }
       if (!s.selected_id && s.view === 'board') {
         void board_view.load();
+      }
+      if (!s.selected_id && s.view === 'sessions') {
+        void sessions_view.load();
       }
       window.localStorage.setItem('beads-ui.view', s.view);
     };

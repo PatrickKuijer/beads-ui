@@ -563,7 +563,7 @@ a {
    own height grows past the viewport and is clipped with no scrollbar. Every
    route therefore fills the shell and hands the overflow to one scrolling
    child: the `.panel__body` for issues/board/detail, and the route element
-   itself for epics, which renders no panel. */
+   itself for epics and sessions, which render no panel. */
 .route {
   min-height: 0; /* allow children to scroll */
   height: 100%;
@@ -594,7 +594,8 @@ a {
     overflow: auto; /* board also scrolls its columns horizontally */
   }
 
-  &.epics {
+  &.epics,
+  &.sessions {
     overflow-y: auto;
     overflow-x: hidden;
   }
@@ -2702,4 +2703,438 @@ html[data-theme='dark'] {
 .dep-count:hover,
 .dependent-count:hover {
   color: var(--fg);
+}
+
+/* ---------------------------------------------------------------------------
+   Sessions â€” the session map reader.
+   Three columns: the spine of past sessions, the map as a document, and the
+   rail of things waiting on a human. Falls back to one column when narrow.
+   --------------------------------------------------------------------------- */
+.sm-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) 320px;
+  gap: var(--space-8);
+  align-items: start;
+  padding: var(--space-8);
+}
+@media (max-width: 1100px) {
+  .sm-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sm-spine,
+  .sm-rail {
+    position: static;
+  }
+}
+
+.sm-empty {
+  padding: var(--space-10);
+  max-width: 62ch;
+}
+.sm-empty p {
+  margin: 0 0 var(--space-5);
+  line-height: 1.55;
+}
+
+.sm-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--link);
+  text-decoration: none;
+}
+.sm-id:hover {
+  text-decoration: underline;
+}
+
+.sm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--badge-radius);
+  white-space: nowrap;
+}
+.sm-chip--blocked {
+  background: color-mix(in srgb, var(--c-blocked) 18%, transparent);
+  color: var(--c-blocked);
+}
+.sm-chip--ready {
+  background: color-mix(in srgb, var(--c-ready) 18%, transparent);
+  color: var(--c-ready);
+}
+.sm-chip--wip {
+  background: color-mix(in srgb, var(--c-inprog) 18%, transparent);
+  color: var(--c-inprog);
+}
+
+/* Spine: one card per session, newest first. */
+.sm-spine {
+  position: sticky;
+  top: 0;
+}
+.sm-spine__title,
+.sm-rail__title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.sm-spine__item {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border-2);
+  border-left: 3px solid var(--border-2);
+  border-radius: 8px;
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  cursor: pointer;
+  background: var(--bg);
+}
+.sm-spine__item:hover,
+.sm-spine__item:focus-visible {
+  border-color: var(--c-inprog);
+}
+.sm-spine__item--active {
+  border-left-color: var(--c-inprog);
+  background: color-mix(in srgb, var(--c-inprog) 8%, var(--bg));
+}
+.sm-spine__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.sm-spine__date {
+  font-size: 12px;
+  font-weight: 700;
+}
+.sm-spine__meta {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.sm-gated {
+  color: var(--p1);
+}
+.sm-spine__bar {
+  display: block;
+  margin-top: var(--space-3);
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.sm-spine__bar span {
+  display: block;
+  height: 100%;
+  background: var(--c-ready);
+}
+
+/* The map, rendered in the order its author wrote it. */
+.sm-doc {
+  min-width: 0;
+}
+.sm-doc__head {
+  display: flex;
+  gap: var(--space-5);
+  align-items: baseline;
+  padding-bottom: var(--space-6);
+  border-bottom: 2px solid var(--border-2);
+  margin-bottom: var(--space-8);
+}
+.sm-doc__title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.sm-block {
+  margin-bottom: var(--space-10);
+}
+.sm-h {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin: 0 0 var(--space-5);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+}
+.sm-h__sub {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+.sm-runway {
+  margin: 0 0 var(--space-5);
+  font-size: 12px;
+  color: var(--muted);
+}
+.sm-prose {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0 0 var(--space-5);
+}
+
+/* Conformance strip: what parsed, from which query, and what is wrong. */
+.sm-conformance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-bg-3);
+  margin-bottom: var(--space-8);
+  font-size: 11px;
+}
+.sm-conformance__q {
+  color: var(--muted);
+  font-size: 10px;
+}
+.sm-conformance__ok {
+  color: var(--c-ready);
+}
+.sm-conformance__bad {
+  color: var(--c-blocked);
+  font-weight: 600;
+}
+.sm-conformance__item {
+  flex: 1 0 100%;
+  font-size: 10.5px;
+  padding-left: var(--space-5);
+  border-left: 2px solid var(--border-2);
+}
+.sm-conformance__item--error {
+  border-left-color: var(--c-blocked);
+}
+.sm-conformance__item--warn {
+  border-left-color: var(--p1);
+}
+
+/* Queue and overflow rows, with live status overlaid. */
+.sm-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sm-queue__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  background: var(--bg);
+}
+.sm-queue__item--closed {
+  opacity: 0.55;
+}
+.sm-queue__item--closed .sm-queue__title {
+  text-decoration: line-through;
+}
+.sm-queue__item--blocked {
+  border-color: color-mix(in srgb, var(--c-blocked) 50%, var(--border));
+}
+.sm-queue__item--next {
+  border-color: var(--c-inprog);
+  box-shadow: inset 3px 0 0 var(--c-inprog);
+}
+.sm-queue__item--overflow {
+  border-style: dashed;
+  opacity: 0.75;
+}
+.sm-queue__n {
+  width: 20px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--muted);
+}
+.sm-queue__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+.sm-brief {
+  list-style: none;
+  font-size: 11.5px;
+  color: var(--muted);
+  padding: 0 var(--space-5) var(--space-4) 34px;
+  margin-top: -2px;
+  line-height: 1.45;
+}
+.sm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+.sm-dot--closed {
+  background: var(--c-closed);
+}
+.sm-dot--wip {
+  background: var(--c-inprog);
+}
+.sm-dot--ready {
+  background: var(--c-ready);
+}
+.sm-dot--blocked {
+  background: var(--c-blocked);
+}
+.sm-dot--unknown {
+  background: transparent;
+  border: 1px solid var(--border-2);
+}
+
+/* Chains light up once their head closes. */
+.sm-chain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) 0;
+  opacity: 0.6;
+}
+.sm-chain--open {
+  opacity: 1;
+}
+.sm-chain__node {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-2);
+}
+.sm-chain__arrow {
+  color: var(--muted);
+}
+
+.sm-trap {
+  border-left: 3px solid var(--p1);
+  background: color-mix(in srgb, var(--p1) 8%, transparent);
+  padding: var(--space-5) var(--space-6);
+  border-radius: 0 6px 6px 0;
+  margin-bottom: var(--space-5);
+}
+.sm-trap__title {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--p1);
+}
+.sm-trap__body {
+  font-size: 12px;
+  margin-top: 3px;
+}
+.sm-trap__affects {
+  font-size: 10px;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.sm-entry {
+  display: flex;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.sm-entry__p {
+  font-size: 10px;
+  color: var(--muted);
+}
+.sm-entry__text {
+  flex: 1;
+  min-width: 0;
+}
+.sm-qgate {
+  font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+  margin-top: var(--space-5);
+}
+.sm-outcome {
+  font-size: 11px;
+  color: var(--muted);
+}
+.sm-outcome div {
+  padding: 1px 0;
+}
+.sm-followups {
+  margin-top: var(--space-5);
+}
+
+/* Rail: decisions the session is waiting on, then drift. */
+.sm-rail {
+  position: sticky;
+  top: 0;
+}
+.sm-rail__title--drift {
+  margin-top: var(--space-8);
+}
+.sm-rail__count {
+  background: var(--p1);
+  color: #fff;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 7px;
+}
+.sm-rail__note {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: var(--space-5);
+}
+.sm-rail__ok {
+  font-size: 11px;
+  color: var(--muted);
+}
+.sm-gate {
+  background: color-mix(in srgb, var(--p1) 18%, transparent);
+  color: var(--p1);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.sm-decision {
+  border: 1px solid var(--border-2);
+  border-left: 3px solid var(--p1);
+  border-radius: 0 6px 6px 0;
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  background: var(--bg);
+}
+.sm-decision__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.sm-decision__text {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.sm-drift {
+  border: 1px dashed var(--c-blocked);
+  border-radius: 6px;
+  padding: var(--space-4) var(--space-5);
+  font-size: 11.5px;
+  margin-bottom: var(--space-4);
+}
+.sm-drift--warn {
+  border-color: var(--p1);
+}
+.sm-drift__row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  font-size: 10px;
+  color: var(--muted);
+  padding-top: 2px;
 }

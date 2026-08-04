@@ -37,6 +37,21 @@ const ICONS = {
     stroke-linecap="round"
   >
     <path d="M2.5 4h11M2.5 8h11M2.5 12h11" />
+  </svg>`,
+  // A queue in execution order: numbered rows, one already ticked off.
+  sessions: html`<svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M1.5 3.5l1.2 1.2 2-2.2" />
+    <path d="M2 8h1M2 12h1" />
+    <path d="M6.5 3.5h8M6.5 8h8M6.5 12h8" />
   </svg>`
 };
 
@@ -61,16 +76,15 @@ const MOON_ICON = html`<svg
   viewBox="0 0 16 16"
   fill="currentColor"
 >
-  <path
-    d="M13.8 10.2A6 6 0 1 1 5.8 2.2a6.6 6.6 0 1 0 8 8z"
-  />
+  <path d="M13.8 10.2A6 6 0 1 1 5.8 2.2a6.6 6.6 0 1 0 8 8z" />
 </svg>`;
 
-/** @type {Array<{ view: 'board'|'epics'|'issues', label: string }>} */
+/** @type {Array<{ view: 'board'|'epics'|'issues'|'sessions', label: string }>} */
 const NAV_ITEMS = [
   { view: 'board', label: 'Board' },
   { view: 'epics', label: 'Epics' },
-  { view: 'issues', label: 'Issues' }
+  { view: 'issues', label: 'Issues' },
+  { view: 'sessions', label: 'Sessions' }
 ];
 
 /**
@@ -79,7 +93,7 @@ const NAV_ITEMS = [
  *
  * @param {HTMLElement} mount_element
  * @param {{ getState: () => any, subscribe: (fn: (s: any) => void) => () => void }} store
- * @param {{ gotoView: (v: 'issues'|'epics'|'board') => void }} router
+ * @param {{ gotoView: (v: 'issues'|'epics'|'board'|'sessions') => void }} router
  * @param {{ getTheme: () => 'light'|'dark', setTheme: (mode: 'light'|'dark') => void }} theme
  */
 export function createSidebar(mount_element, store, router, theme) {
@@ -88,7 +102,7 @@ export function createSidebar(mount_element, store, router, theme) {
   let unsubscribe = null;
 
   /**
-   * @param {'board'|'epics'|'issues'} view
+   * @param {'board'|'epics'|'issues'|'sessions'} view
    */
   function onClick(view) {
     return (/** @type {MouseEvent} */ ev) => {

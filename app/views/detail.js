@@ -219,7 +219,7 @@ export function createDetailView(
 
   /** @param {string} id */
   function issueHref(id) {
-    /** @type {'issues'|'epics'|'board'} */
+    /** @type {'issues'|'epics'|'board'|'sessions'} */
     const view = parseView(window.location.hash || '');
     return issueHashFor(view, id);
   }

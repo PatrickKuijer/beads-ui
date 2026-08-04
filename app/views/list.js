@@ -121,7 +121,7 @@ export function createListView(
   const row_renderer = createIssueRowRenderer({
     navigate: (id) => {
       const nav = navigateFn || ((h) => (window.location.hash = h));
-      /** @type {'issues'|'epics'|'board'} */
+      /** @type {'issues'|'epics'|'board'|'sessions'} */
       const view = store ? store.getState().view : 'issues';
       nav(issueHashFor(view, id));
     },
@@ -355,7 +355,8 @@ export function createListView(
         </div>
         <div class="filter-dropdown ${sort_dropdown_open ? 'is-open' : ''}">
           <button class="filter-dropdown__trigger" @click=${toggleSortDropdown}>
-            Sort: ${SORT_OPTIONS.find((o) => o.value === sort_field)?.label ||
+            Sort:
+            ${SORT_OPTIONS.find((o) => o.value === sort_field)?.label ||
             'Priority'}
             <span class="filter-dropdown__arrow">▾</span>
           </button>
@@ -601,7 +602,7 @@ export function createListView(
       const id = current ? current.getAttribute('data-issue-id') : '';
       if (id) {
         const nav = navigateFn || ((h) => (window.location.hash = h));
-        /** @type {'issues'|'epics'|'board'} */
+        /** @type {'issues'|'epics'|'board'|'sessions'} */
         const view = store ? store.getState().view : 'issues';
         nav(issueHashFor(view, id));
       }
